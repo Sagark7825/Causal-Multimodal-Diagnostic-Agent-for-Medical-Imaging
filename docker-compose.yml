@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: medcausal-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - medcausal-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: medcausal-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/medcausal
+      - JWT_SECRET=medcausal_secret_key_12345
+      - AI_BACKEND_URL=http://ai_backend:8000
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend/uploads:/usr/src/app/uploads
+    networks:
+      - medcausal-network
+
+  ai_backend:
+    build:
+      context: ./ai_backend
+      dockerfile: Dockerfile
+    container_name: medcausal-ai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    volumes:
+      - ./backend/uploads:/usr/src/app/uploads # Share uploads folder
+    networks:
+      - medcausal-network
+
+networks:
+  medcausal-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local

@@ -1,0 +1,14 @@
+fastapi==0.110.0
+uvicorn==0.28.0
+pydantic==2.6.4
+python-multipart==0.0.9
+pydicom==2.4.4
+numpy==1.26.4
+opencv-python==4.9.0.80
+scikit-learn==1.4.1.post1
+pandas==2.2.1
+networkx==3.2.1
+dowhy==0.11.1
+langgraph==0.0.26
+typing-extensions==4.10.0
+aiofiles==23.2.1

@@ -1,0 +1,326 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c084fc;
+  --color-brand-400: #a855f7;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+  --color-brand-950: #2e1065;
+
+  --color-slate-850: #fafafa;
+  --color-slate-900: #f4f4f5;
+  --color-slate-950: #e4e4e7;
+
+  --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
+}
+
+body {
+  background: radial-gradient(circle at top left, #f8fafc 0%, #edf2f7 50%, #e2e8f0 100%) !important;
+  color: #1e293b !important;
+  @apply font-sans antialiased overflow-x-hidden selection:bg-brand-500 selection:text-white;
+}
+
+/* Glassmorphism Styles Overhauled for Premium Light Clinical Theme */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(124, 58, 237, 0.12) !important;
+  box-shadow: 0 20px 40px -15px rgba(124, 58, 237, 0.06), 0 0 25px 0 rgba(124, 58, 237, 0.01) !important;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(124, 58, 237, 0.08) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -4px rgba(124, 58, 237, 0.08) !important;
+  border-color: rgba(124, 58, 237, 0.18) !important;
+}
+
+.glass-input {
+  background: #ffffff !important;
+  border: 1px solid rgba(124, 58, 237, 0.2) !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  @apply placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 rounded-lg px-4 py-2;
+}
+
+.glass-input:focus {
+  border-color: rgba(124, 58, 237, 0.5) !important;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.15) !important;
+}
+
+.glass-btn-primary {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+  border: none !important;
+  @apply text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-brand-500/20 active:scale-[0.97] cursor-pointer hover:opacity-95;
+}
+
+.glass-btn-secondary {
+  background: #ffffff !important;
+  border: 1px solid rgba(124, 58, 237, 0.2) !important;
+  color: #4c1d95 !important;
+  @apply font-semibold px-4 py-2 rounded-lg transition-all duration-200 active:scale-[0.97] cursor-pointer hover:bg-brand-50/60 hover:text-brand-700 hover:border-brand-300;
+}
+
+.glass-btn-danger {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+  border: none !important;
+  @apply text-white font-semibold px-4 py-2 rounded-lg transition-all duration-200 shadow-md active:scale-[0.97] cursor-pointer hover:opacity-95;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(244, 244, 245, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.25);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.45);
+}
+
+/* Pulsing Triage Lights */
+.pulse-critical {
+  box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7);
+  animation: pulse-rose 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+.pulse-high {
+  box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.7);
+  animation: pulse-amber 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+@keyframes pulse-rose {
+  to {
+    box-shadow: 0 0 0 10px rgba(225, 29, 72, 0);
+  }
+}
+
+@keyframes pulse-amber {
+  to {
+    box-shadow: 0 0 0 10px rgba(217, 119, 6, 0);
+  }
+}
+
+/* Reset and Restore Light Theme Utility Classes */
+.bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+
+.bg-slate-950\/80 {
+  background: rgba(248, 250, 252, 0.8) !important;
+}
+
+.bg-slate-950\/60 {
+  background: rgba(248, 250, 252, 0.6) !important;
+}
+
+/* Primary Sidebar & Headers */
+aside.bg-slate-900\/80 {
+  background-color: #ffffff !important;
+  border-color: rgba(124, 58, 237, 0.08) !important;
+  box-shadow: 4px 0 30px -10px rgba(124, 58, 237, 0.05) !important;
+}
+
+header.bg-slate-900\/30 {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.08) !important;
+}
+
+/* subpanels & cards */
+.bg-slate-900\/60,
+.bg-slate-900\/40,
+.bg-slate-900 {
+  background-color: #f1f5f9 !important;
+}
+
+.bg-slate-800\/40 {
+  background-color: rgba(244, 244, 245, 0.65) !important;
+}
+
+.bg-slate-800 {
+  background-color: #e4e4e7 !important;
+}
+
+/* Highlighted lists, active links, states */
+.bg-brand-950\/20 {
+  background-color: rgba(124, 58, 237, 0.05) !important;
+}
+.bg-brand-950\/40 {
+  background-color: rgba(124, 58, 237, 0.1) !important;
+}
+.bg-brand-500\/10 {
+  background-color: rgba(124, 58, 237, 0.08) !important;
+}
+.bg-brand-600\/10 {
+  background-color: rgba(124, 58, 237, 0.06) !important;
+}
+
+/* Status badging and emergency backgrounds */
+.bg-emerald-950\/60,
+.bg-emerald-950\/40 {
+  background-color: #f0fdf4 !important;
+}
+.bg-rose-950\/60,
+.bg-rose-950\/40,
+.bg-rose-950\/20 {
+  background-color: #fff1f2 !important;
+}
+.bg-amber-950\/60 {
+  background-color: #fffbeb !important;
+}
+.bg-blue-950\/60 {
+  background-color: #eff6ff !important;
+}
+.bg-violet-950\/60 {
+  background-color: #faf5ff !important;
+}
+
+/* Border overrides */
+.border-white\/5 {
+  border-color: rgba(124, 58, 237, 0.06) !important;
+}
+.border-white\/10 {
+  border-color: rgba(124, 58, 237, 0.1) !important;
+}
+.border-slate-800,
+.border-slate-700 {
+  border-color: rgba(124, 58, 237, 0.08) !important;
+}
+.border-emerald-800 {
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+.border-rose-800,
+.border-rose-800\/30 {
+  border-color: rgba(244, 63, 94, 0.25) !important;
+}
+.border-amber-800 {
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+.border-blue-800 {
+  border-color: rgba(59, 130, 246, 0.25) !important;
+}
+.border-violet-800 {
+  border-color: rgba(139, 92, 246, 0.25) !important;
+}
+.border-brand-500\/50,
+.border-brand-500\/30,
+.border-brand-500\/20,
+.border-brand-500\/10 {
+  border-color: rgba(124, 58, 237, 0.2) !important;
+}
+
+/* Typography elements and standard texts */
+.text-slate-100 {
+  color: #0f172a !important;
+  font-weight: 500;
+}
+.text-slate-200 {
+  color: #1e293b !important;
+}
+.text-slate-300 {
+  color: #334155 !important;
+}
+.text-slate-400 {
+  color: #475569 !important;
+}
+.text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Brand-specific colored text contrast */
+.text-brand-400 {
+  color: #7c3aed !important;
+  font-weight: 600;
+}
+.text-brand-300 {
+  color: #6d28d9 !important;
+  font-weight: 700;
+}
+.text-emerald-400 {
+  color: #047857 !important;
+  font-weight: 600;
+}
+.text-rose-400 {
+  color: #be123c !important;
+  font-weight: 600;
+}
+.text-amber-400,
+.text-amber-500 {
+  color: #b45309 !important;
+  font-weight: 600;
+}
+.text-violet-400 {
+  color: #6d28d9 !important;
+  font-weight: 600;
+}
+
+/* Select element option fix for background */
+select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 500;
+}
+
+/* Global headings */
+h1, h2, h3, h4, h5, h6 {
+  color: #0f172a !important;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* Content overlays and layouts */
+.glass-panel .text-white,
+.glass-card .text-white,
+.glass-panel span.text-white,
+.glass-card span.text-white,
+header .text-white,
+aside .text-white,
+table .text-white,
+.text-slate-200,
+.text-slate-300 {
+  color: #1e293b !important;
+}
+
+/* Ensure buttons, active tabs, and colored badges are readable */
+button.glass-btn-primary,
+button.glass-btn-danger,
+button.glass-btn-primary *,
+button.glass-btn-danger *,
+.bg-indigo-600,
+.bg-indigo-600 *,
+.bg-brand-600,
+.bg-brand-600 *,
+.bg-emerald-600,
+.bg-emerald-600 *,
+.bg-rose-600,
+.bg-rose-600 *,
+.bg-cyan-600,
+.bg-cyan-600 * {
+  color: #ffffff !important;
+}
