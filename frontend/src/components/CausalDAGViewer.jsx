@@ -129,25 +129,25 @@ export default function CausalDAGViewer({ baselineDisease = "Pneumonia", baselin
   };
 
   return (
-    <div className="glass-panel p-5 rounded-xl flex flex-col h-full">
+    <div className="glass-panel p-5 rounded-2xl flex flex-col h-full border border-white/5 shadow-xl font-sans">
       {/* Title */}
       <div className="flex justify-between items-center mb-3">
         <div>
-          <h3 className="font-semibold text-sm text-slate-200">Interactive Causal DAG</h3>
-          <p className="text-[11px] text-slate-400">Backdoor adjustments to block non-causal bias & run counterfactuals</p>
+          <h3 className="font-bold text-xs uppercase text-slate-300 font-display">Interactive Causal DAG</h3>
+          <p className="text-[10px] text-slate-500 font-medium">Backdoor adjustments to block non-causal bias & run counterfactuals</p>
         </div>
-        <button onClick={handleReset} className="text-slate-400 hover:text-white transition p-1" title="Reset Simulation">
+        <button onClick={handleReset} className="text-slate-400 hover:text-white transition-all duration-200 p-1 rounded-lg hover:bg-white/5 cursor-pointer" title="Reset Simulation">
           <RefreshCw size={13} />
         </button>
       </div>
 
       {/* SVG Canvas */}
-      <div className="bg-slate-950 border border-brand-500/10 rounded-lg overflow-hidden flex items-center justify-center p-2 mb-4 h-[240px] relative">
+      <div className="bg-[#061826] border border-cyan-500/15 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-4 h-[240px] relative shadow-inner">
         <svg viewBox="0 0 520 320" className="w-full h-full">
           {/* Arrow marker definition */}
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1.5 L 7 5 L 0 8.5 z" className="fill-slate-400" />
+              <path d="M 0 1.5 L 7 5 L 0 8.5 z" className="fill-slate-500" />
             </marker>
           </defs>
 
@@ -177,21 +177,21 @@ export default function CausalDAGViewer({ baselineDisease = "Pneumonia", baselin
                   r="24"
                   className={`${
                     isIntervened 
-                      ? 'fill-brand-950 stroke-brand-400' 
-                      : 'fill-slate-900 stroke-slate-800'
+                      ? 'fill-cyan-500/10 stroke-cyan-400 shadow-[0_0_12px_rgba(0,198,255,0.25)]' 
+                      : 'fill-[#102a43]/85 stroke-white/8'
                   } stroke-2 transition duration-300`}
                 />
                 <text
                   textAnchor="middle"
                   dy="-2"
-                  className="fill-slate-200 text-[8px] font-semibold font-sans select-none"
+                  className="fill-slate-200 text-[8px] font-bold font-sans select-none"
                 >
                   {name.split('_')[0]}
                 </text>
                 <text
                   textAnchor="middle"
                   dy="12"
-                  className={`${isIntervened ? 'fill-brand-400 font-bold' : 'fill-slate-500'} text-[7px] font-mono select-none`}
+                  className={`${isIntervened ? 'fill-cyan-400 font-bold' : 'fill-slate-500'} text-[7px] font-mono select-none`}
                 >
                   {isIntervened 
                     ? (name === 'Age' ? `${nodeVal}y` : (nodeVal === 1 ? 'Present' : 'Absent'))
@@ -205,27 +205,27 @@ export default function CausalDAGViewer({ baselineDisease = "Pneumonia", baselin
       </div>
 
       {/* Probability comparison gauges */}
-      <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
-        <div className="bg-slate-900/60 p-3 rounded-lg border border-white/5">
-          <div className="text-slate-400 mb-1">Baseline AI Prediction</div>
-          <div className="text-lg font-bold text-slate-200 font-mono">{(baselineProb * 100).toFixed(1)}%</div>
-          <div className="w-full bg-slate-800 h-1.5 rounded mt-2 overflow-hidden">
+      <div className="grid grid-cols-2 gap-4 mb-4 text-xs font-sans">
+        <div className="bg-[#061826]/60 p-3 rounded-xl border border-white/5 shadow-inner">
+          <div className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Baseline AI Prediction</div>
+          <div className="text-base font-bold text-white font-mono">{(baselineProb * 100).toFixed(1)}%</div>
+          <div className="w-full bg-[#102a43] h-1.5 rounded-full mt-2 overflow-hidden border border-white/5">
             <div className="bg-slate-400 h-full" style={{ width: `${baselineProb * 100}%` }}></div>
           </div>
         </div>
 
-        <div className="bg-brand-950/20 p-3 rounded-lg border border-brand-500/20 relative">
-          {loading && <span className="absolute top-2 right-2 text-[9px] text-brand-400 animate-pulse">Computing...</span>}
-          <div className="text-brand-300 mb-1 flex items-center gap-1">
+        <div className="bg-cyan-500/5 p-3 rounded-xl border border-cyan-500/20 relative shadow-inner">
+          {loading && <span className="absolute top-2.5 right-2.5 text-[8px] font-mono text-cyan-400 font-bold animate-pulse">COMPUTING...</span>}
+          <div className="text-cyan-400 text-[9px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
             <span>What-If Counterfactual</span>
-            <HelpCircle size={10} className="text-brand-400" title="Simulated likelihood if variables were actively intervened on" />
+            <HelpCircle size={10} className="text-cyan-400" title="Simulated likelihood if variables were actively intervened on" />
           </div>
-          <div className={`text-lg font-bold font-mono ${updatedProb < baselineProb ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <div className={`text-base font-bold font-mono ${updatedProb < baselineProb ? 'text-emerald-400' : 'text-rose-400'}`}>
             {(updatedProb * 100).toFixed(1)}%
           </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded mt-2 overflow-hidden">
+          <div className="w-full bg-[#102a43] h-1.5 rounded-full mt-2 overflow-hidden border border-white/5">
             <div 
-              className={`h-full transition-all duration-300 ${updatedProb < baselineProb ? 'bg-emerald-500' : 'bg-rose-500'}`} 
+              className={`h-full transition-all duration-300 ${updatedProb < baselineProb ? 'bg-emerald-400' : 'bg-rose-400'}`} 
               style={{ width: `${updatedProb * 100}%` }}
             ></div>
           </div>
@@ -233,19 +233,19 @@ export default function CausalDAGViewer({ baselineDisease = "Pneumonia", baselin
       </div>
 
       {/* Control Sliders */}
-      <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-white/5 text-xs">
+      <div className="space-y-3 bg-[#061826]/40 p-3.5 rounded-xl border border-white/5 text-xs font-sans">
         <div className="flex justify-between items-center">
-          <span className="text-slate-300 font-medium">do(Opacity) - Visual Marker</span>
+          <span className="text-slate-300 font-semibold">do(Opacity) - Visual Marker</span>
           <div className="flex items-center gap-2">
             <button 
               onClick={() => handleSliderChange('Opacity', 0)}
-              className={`px-2 py-0.5 rounded text-[10px] ${interventions.Opacity === 0 ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all cursor-pointer ${interventions.Opacity === 0 ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md' : 'bg-[#102a43] text-slate-400 border border-white/5 hover:text-slate-200'}`}
             >
               Absent (0)
             </button>
             <button 
               onClick={() => handleSliderChange('Opacity', 1)}
-              className={`px-2 py-0.5 rounded text-[10px] ${interventions.Opacity === 1 ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all cursor-pointer ${interventions.Opacity === 1 ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md' : 'bg-[#102a43] text-slate-400 border border-white/5 hover:text-slate-200'}`}
             >
               Present (1)
             </button>
@@ -253,17 +253,17 @@ export default function CausalDAGViewer({ baselineDisease = "Pneumonia", baselin
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-slate-300 font-medium">do(Fever) - Symptom</span>
+          <span className="text-slate-300 font-semibold">do(Fever) - Symptom</span>
           <div className="flex items-center gap-2">
             <button 
               onClick={() => handleSliderChange('Fever', 0)}
-              className={`px-2 py-0.5 rounded text-[10px] ${interventions.Fever === 0 ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all cursor-pointer ${interventions.Fever === 0 ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md' : 'bg-[#102a43] text-slate-400 border border-white/5 hover:text-slate-200'}`}
             >
               Absent (0)
             </button>
             <button 
               onClick={() => handleSliderChange('Fever', 1)}
-              className={`px-2 py-0.5 rounded text-[10px] ${interventions.Fever === 1 ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all cursor-pointer ${interventions.Fever === 1 ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md' : 'bg-[#102a43] text-slate-400 border border-white/5 hover:text-slate-200'}`}
             >
               Present (1)
             </button>
@@ -271,9 +271,9 @@ export default function CausalDAGViewer({ baselineDisease = "Pneumonia", baselin
         </div>
 
         <div>
-          <div className="flex justify-between text-slate-300 mb-1">
-            <span>do(Age) - Confounder</span>
-            <span className="font-mono text-brand-400">{interventions.Age} years</span>
+          <div className="flex justify-between text-slate-300 mb-1.5">
+            <span className="font-semibold">do(Age) - Confounder</span>
+            <span className="font-mono text-cyan-400 font-bold">{interventions.Age} years</span>
           </div>
           <input
             type="range"
@@ -281,18 +281,18 @@ export default function CausalDAGViewer({ baselineDisease = "Pneumonia", baselin
             max="95"
             value={interventions.Age}
             onChange={(e) => handleSliderChange('Age', Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500"
+            className="w-full h-1 bg-[#061826] rounded-lg appearance-none cursor-pointer accent-cyan-400"
           />
         </div>
       </div>
 
       {/* Causal explanation trace */}
       {explanations.length > 0 && (
-        <div className="mt-3 bg-slate-950/60 p-2.5 rounded border border-white/5 text-[10px] text-slate-400 space-y-1.5 font-mono">
-          <div className="text-brand-400 font-semibold uppercase text-[9px]">Simulation Reason:</div>
+        <div className="mt-3.5 bg-[#061826]/75 p-3 rounded-xl border border-white/5 text-[9px] text-slate-400 space-y-1.5 font-mono shadow-inner leading-relaxed">
+          <div className="text-cyan-400 font-bold uppercase tracking-wider text-[8px]">Simulation Ledger Trace:</div>
           {explanations.map((exp, i) => (
             <div key={i} className="flex gap-1.5 items-start">
-              <span className="text-brand-500">•</span>
+              <span className="text-cyan-400 font-bold">•</span>
               <span>{exp}</span>
             </div>
           ))}

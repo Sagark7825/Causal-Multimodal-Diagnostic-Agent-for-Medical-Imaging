@@ -183,37 +183,40 @@ export default function DICOMViewer({ scanUrl, boundingBoxes = [], dicomMetadata
   const zoomOut = () => setZoom(z => Math.max(0.5, z - 0.2));
 
   return (
-    <div className="glass-panel rounded-xl overflow-hidden flex flex-col h-full">
+    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-full border border-white/5 shadow-xl">
       {/* Control bar */}
-      <div className="bg-slate-900/80 px-4 py-2 border-b border-white/5 flex items-center justify-between text-xs">
+      <div className="bg-[#102a43]/75 px-4 py-3 border-b border-white/5 flex items-center justify-between text-xs font-sans">
         <div className="flex items-center gap-3">
-          <span className="font-semibold text-brand-400">DICOM VIEWER v1.2</span>
+          <span className="font-bold text-cyan-400 tracking-wider">PACS WORKSTATION v1.2</span>
           {dicomMetadata && dicomMetadata["Manufacturer"] && (
-            <span className="text-slate-400">({dicomMetadata["Manufacturer"]})</span>
+            <span className="text-slate-400 font-mono">({dicomMetadata["Manufacturer"]})</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <button 
+            type="button"
             onClick={() => setMode('pan')}
-            className={`p-1.5 rounded transition ${mode === 'pan' ? 'bg-brand-600 text-white' : 'hover:bg-white/5 text-slate-400'}`}
+            className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${mode === 'pan' ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md' : 'hover:bg-white/5 text-slate-400 hover:text-slate-200'}`}
             title="Pan & Drag"
           >
-            <Move size={15} />
+            <Move size={14} />
           </button>
           <button 
+            type="button"
             onClick={() => setMode('measure')}
-            className={`p-1.5 rounded transition ${mode === 'measure' ? 'bg-brand-600 text-white' : 'hover:bg-white/5 text-slate-400'}`}
+            className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${mode === 'measure' ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md' : 'hover:bg-white/5 text-slate-400 hover:text-slate-200'}`}
             title="Measurement Line (Ruler)"
           >
-            <Ruler size={15} />
+            <Ruler size={14} />
           </button>
           <div className="w-px h-4 bg-white/10 mx-1"></div>
-          <button onClick={zoomIn} className="p-1.5 hover:bg-white/5 rounded text-slate-400"><ZoomIn size={15} /></button>
-          <button onClick={zoomOut} className="p-1.5 hover:bg-white/5 rounded text-slate-400"><ZoomOut size={15} /></button>
-          <button onClick={resetViewer} className="p-1.5 hover:bg-white/5 rounded text-slate-400" title="Reset"><RefreshCw size={15} /></button>
+          <button type="button" onClick={zoomIn} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"><ZoomIn size={14} /></button>
+          <button type="button" onClick={zoomOut} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"><ZoomOut size={14} /></button>
+          <button type="button" onClick={resetViewer} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer" title="Reset"><RefreshCw size={14} /></button>
           <button 
+            type="button"
             onClick={() => setShowOverlays(o => !o)} 
-            className={`px-2 py-1 rounded text-[10px] ${showOverlays ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}`}
+            className={`px-2.5 py-1 rounded-lg text-[9px] font-bold tracking-wider uppercase transition cursor-pointer ${showOverlays ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25' : 'bg-[#061826]/40 text-slate-400 border border-white/5'}`}
           >
             Overlays
           </button>
@@ -221,7 +224,10 @@ export default function DICOMViewer({ scanUrl, boundingBoxes = [], dicomMetadata
       </div>
 
       {/* Main View Area */}
-      <div className="flex-1 bg-black relative flex items-center justify-center min-h-[350px]">
+      <div className="flex-1 bg-black/90 relative flex items-center justify-center min-h-[350px] scanning-container">
+        {/* Subtle scan laser scanning effect */}
+        {showOverlays && <div className="scanning-laser" />}
+
         <canvas
           ref={canvasRef}
           width={550}
@@ -235,22 +241,22 @@ export default function DICOMViewer({ scanUrl, boundingBoxes = [], dicomMetadata
 
         {/* Floating clinical overlays */}
         {showOverlays && (
-          <div className="absolute top-3 left-3 pointer-events-none text-[10px] font-mono text-emerald-400 bg-black/60 p-2 rounded border border-emerald-500/10 space-y-1">
-            <div>Patient Name: {dicomMetadata["Patient Name"] || "N/A"}</div>
-            <div>Patient ID: {dicomMetadata["Patient ID"] || "N/A"}</div>
-            <div>Study Date: {dicomMetadata["Study Date"] || "N/A"}</div>
-            <div>Modality: {dicomMetadata["Modality"] || "N/A"}</div>
-            <div>Window: C {windowCenter} / W {windowWidth}</div>
+          <div className="absolute top-4 left-4 pointer-events-none text-[9px] font-mono text-emerald-400 bg-black/75 p-3 rounded-xl border border-emerald-500/20 space-y-1 shadow-2xl">
+            <div className="flex gap-1.5"><span className="text-slate-500">PATIENT:</span> <span>{dicomMetadata["Patient Name"] || "N/A"}</span></div>
+            <div className="flex gap-1.5"><span className="text-slate-500">ID:</span> <span>{dicomMetadata["Patient ID"] || "N/A"}</span></div>
+            <div className="flex gap-1.5"><span className="text-slate-500">DATE:</span> <span>{dicomMetadata["Study Date"] || "N/A"}</span></div>
+            <div className="flex gap-1.5"><span className="text-slate-500">MODALITY:</span> <span>{dicomMetadata["Modality"] || "N/A"}</span></div>
+            <div className="flex gap-1.5"><span className="text-slate-500">WINDOW:</span> <span>C {windowCenter} / W {windowWidth}</span></div>
           </div>
         )}
       </div>
 
       {/* Adjust Windowing sliders */}
-      <div className="p-3 bg-slate-900/60 border-t border-white/5 grid grid-cols-2 gap-4 text-xs">
+      <div className="p-4 bg-[#102a43]/60 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
         <div>
-          <div className="flex justify-between text-slate-400 mb-1">
-            <span>Window Center (Brightness)</span>
-            <span className="font-mono">{windowCenter}</span>
+          <div className="flex justify-between text-slate-400 mb-1.5">
+            <span className="font-semibold">Window Center (Brightness)</span>
+            <span className="font-mono text-cyan-400 font-bold">{windowCenter}</span>
           </div>
           <input
             type="range"
@@ -258,13 +264,13 @@ export default function DICOMViewer({ scanUrl, boundingBoxes = [], dicomMetadata
             max="255"
             value={windowCenter}
             onChange={(e) => setWindowCenter(Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500"
+            className="w-full h-1 bg-[#061826] rounded-lg appearance-none cursor-pointer accent-cyan-400"
           />
         </div>
         <div>
-          <div className="flex justify-between text-slate-400 mb-1">
-            <span>Window Width (Contrast)</span>
-            <span className="font-mono">{windowWidth}</span>
+          <div className="flex justify-between text-slate-400 mb-1.5">
+            <span className="font-semibold">Window Width (Contrast)</span>
+            <span className="font-mono text-cyan-400 font-bold">{windowWidth}</span>
           </div>
           <input
             type="range"
@@ -272,7 +278,7 @@ export default function DICOMViewer({ scanUrl, boundingBoxes = [], dicomMetadata
             max="512"
             value={windowWidth}
             onChange={(e) => setWindowWidth(Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500"
+            className="w-full h-1 bg-[#061826] rounded-lg appearance-none cursor-pointer accent-cyan-400"
           />
         </div>
       </div>
