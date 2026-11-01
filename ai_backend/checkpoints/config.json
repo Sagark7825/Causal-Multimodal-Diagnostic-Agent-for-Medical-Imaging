@@ -1,0 +1,21 @@
+{
+    "DATA_DIR": "./data/chestxray14",
+    "BACKBONE": "densenet121",
+    "EPOCHS": 50,
+    "BATCH_SIZE": 16,
+    "ACCUMULATION_STEPS": 2,
+    "IMAGE_SIZE": 224,
+    "WEIGHT_DECAY": 0.0001,
+    "NUM_WORKERS": 4,
+    "WARMUP_EPOCHS": 3,
+    "EARLY_STOP_PATIENCE": 15,
+    "MIN_DELTA": 0.001,
+    "USE_AMP": true,
+    "CHECKPOINT_DIR": "./checkpoints",
+    "SAVE_EVERY_N": 5,
+    "RESUME": "./checkpoints/latest_checkpoint.pth",
+    "GRAD_CLIP": 1.0,
+    "USE_WEIGHTED_SAMPLER": true,
+    "EMA_DECAY": 0.999,
+    "SEED": 42
+}

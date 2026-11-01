@@ -5,6 +5,7 @@ import { Clock, Upload, Cpu, ArrowRight, FileText, CheckCircle, AlertCircle, Fil
 import StatCard from '../UI/StatCard.jsx';
 import DICOMViewer from '../DICOMViewer.jsx';
 import CausalDAGViewer from '../CausalDAGViewer.jsx';
+import MRIDashboard from './MRIDashboard.jsx';
 
 export default function RadiologistDashboard({
   activeTab, setActiveTab,
@@ -14,16 +15,22 @@ export default function RadiologistDashboard({
   radiologistObservation, setRadiologistObservation,
   obsAction, setObsAction,
   loading,
+  setLoading,
+  patients = [],
+  radiologistsList = [],
   
   // Handlers
   handleUploadImaging,
   handleRunAIAnalysis,
+  handleUploadAndRunAI,
   handleRadiologistSubmitReport,
   
   // Badges & helpers
   getPriorityBadgeClass,
   getStatusBadgeClass,
-  auth
+  auth,
+  API_BASE,
+  fetchDashboardData
 }) {
 
   // React Dropzone integration
@@ -169,59 +176,47 @@ export default function RadiologistDashboard({
                   <div className="text-slate-400 font-semibold text-[11px]">Modality: <span className="text-cyan-400">{selectedCase.modality}</span></div>
                 </div>
 
-                {/* Drag and Drop Scan file upload using React Dropzone */}
-                <form onSubmit={handleUploadImaging} className="space-y-4">
+                {/* Single unified process button form */}
+                <form onSubmit={handleUploadAndRunAI || handleUploadImaging} className="space-y-4">
                   <div 
                     {...getRootProps()} 
                     className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-center min-h-[140px] ${
                       isDragActive 
-                        ? 'border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10' 
+                        ? 'border-blue-400 bg-blue-500/10 shadow-lg' 
                         : uploadFile 
                           ? 'border-emerald-500/40 bg-emerald-500/5' 
-                          : 'border-white/10 bg-white/2 hover:border-cyan-500/30'
+                          : 'border-slate-800 bg-slate-900/60 hover:border-blue-500/30'
                     }`}
                   >
                     <input {...getInputProps()} />
                     
-                    {/* Laser scanning laser element when file is dragged or uploading */}
                     {isDragActive && <div className="scanning-laser" />}
                     
-                    <FileUp size={28} className={`mb-2.5 ${uploadFile ? 'text-emerald-400' : 'text-cyan-400 animate-pulse'}`} />
+                    <FileUp size={28} className={`mb-2.5 ${uploadFile ? 'text-emerald-400' : 'text-blue-400 animate-pulse'}`} />
                     
                     {uploadFile ? (
                       <div className="space-y-1">
-                        <span className="text-emerald-400 font-bold block">Scan File Selected</span>
+                        <span className="text-emerald-400 font-bold block">Scan Image Ready</span>
                         <span className="text-slate-300 text-[10px] font-mono break-all block max-w-[200px]">{uploadFile.name}</span>
                       </div>
                     ) : (
                       <div>
-                        <span className="text-slate-200 font-bold block mb-1">Drag scan file here</span>
-                        <span className="text-slate-500 text-[10px]">or click to browse PACS disk</span>
+                        <span className="text-slate-200 font-bold block mb-1">Drag scan image here</span>
+                        <span className="text-slate-500 text-[10px]">or click to browse PACS files</span>
                       </div>
                     )}
                   </div>
                   
-                  <button type="submit" className="w-full glass-btn-primary py-3 font-semibold shadow-lg shadow-cyan-500/10 cursor-pointer">
-                    Ingest Scan to PACS Server
+                  {/* Single Unified Process Button */}
+                  <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="w-full glass-btn-primary py-3.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                  >
+                    <Cpu size={15} className={loading ? 'animate-spin' : ''} />
+                    {loading ? 'Processing Model & LLM AI Pipeline...' : 'Process Scan & Run AI Diagnosis →'}
                   </button>
                 </form>
-
-                {/* AI Inference triggers */}
-                {selectedReport && (
-                  <div className="pt-4 border-t border-white/5 space-y-3">
-                    <span className="text-slate-400 text-[10px] uppercase font-mono font-bold block tracking-wider">
-                      Neural Inference Control
-                    </span>
-                    <button
-                      onClick={handleRunAIAnalysis} 
-                      disabled={loading}
-                      className="w-full glass-btn-secondary py-3 flex items-center justify-center gap-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 cursor-pointer shadow-md font-semibold transition-all"
-                    >
-                      <Cpu size={14} className={loading ? 'animate-spin' : ''} />
-                      {loading ? 'Running Neural AI Engine...' : 'Run Diagnostic AI Analysis'}
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="glass-panel p-12 text-center text-slate-500 text-xs rounded-2xl italic font-display flex flex-col items-center justify-center gap-3 border border-white/5">
@@ -419,25 +414,271 @@ export default function RadiologistDashboard({
               Completed Radiology Reports Registry
             </h3>
           <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
-            {cases.filter(c => c.status === 'Doctor Review Pending' || c.status === 'Treatment Completed' || c.status === 'Case Closed').map(c => (
+            {cases.filter(c => c.radiologyReport || c.aiPrediction || c.status === 'AI Analysis Completed' || c.status === 'Doctor Review Pending' || c.status === 'Treatment Completed' || c.status === 'Case Closed').map(c => (
               <div key={c._id} className="p-4 bg-[#061826]/60 border border-white/5 rounded-2xl text-xs flex justify-between items-center hover:border-white/10 transition">
                 <div>
-                  <div className="font-mono text-[9px] text-cyan-400 font-bold">CASE: {c.caseId} ({c.modality})</div>
+                  <div className="font-mono text-[9px] text-cyan-400 font-bold">CASE: {c.caseId} ({c.modality}) • STATUS: {c.status}</div>
                   <div className="font-bold text-white mt-1.5 font-display">{c.patient?.name}</div>
-                  {c.radiologyReport && <p className="text-slate-400 italic mt-1.5 leading-relaxed font-sans">"Observation findings: {c.radiologyReport.radiologistObservation}"</p>}
+                  {c.aiPrediction?.predictedDisease && (
+                    <div className="text-emerald-400 text-[10px] font-mono mt-1">
+                      AI Diagnosis: {c.aiPrediction.predictedDisease} ({c.aiPrediction.severityLevel || 'Moderate'})
+                    </div>
+                  )}
+                  {c.radiologyReport?.radiologistObservation && <p className="text-slate-400 italic mt-1 leading-relaxed font-sans">"Observation findings: {c.radiologyReport.radiologistObservation}"</p>}
                 </div>
-                <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-3 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider font-display">
-                  Report Logged
-                </span>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedCase(c); if (c.radiologyReport) setSelectedReport(c.radiologyReport); setActiveTab('overview'); }}
+                  className="glass-btn-primary text-[10px] py-1.5 px-3 cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <FileText size={13} /> View Case Report
+                </button>
               </div>
             ))}
-            {cases.filter(c => c.status === 'Doctor Review Pending' || c.status === 'Treatment Completed' || c.status === 'Case Closed').length === 0 && (
+            {cases.filter(c => c.radiologyReport || c.aiPrediction || c.status === 'AI Analysis Completed' || c.status === 'Doctor Review Pending' || c.status === 'Treatment Completed' || c.status === 'Case Closed').length === 0 && (
               <div className="text-center text-slate-500 py-12 italic font-display">No completed reports in archive.</div>
             )}
           </div>
         </div>
       </div>
     )}
+
+      {/* ==================== TAB: PATIENTS QUEUE ==================== */}
+      {activeTab === 'patients' && (
+        <div className="glass-panel p-5 rounded-2xl border border-white/5 space-y-4 font-sans">
+          <div className="border-b border-white/5 pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+              <Clock className="text-cyan-400" size={18} />
+              Patients Radiology Scan Queue
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Patient records assigned for diagnostic imaging and observation report drafting.</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-slate-500 font-mono text-[9px] uppercase tracking-wider">
+                  <th className="py-3 px-3">Case ID</th>
+                  <th className="py-3 px-3">Patient Name</th>
+                  <th className="py-3 px-3">Age / Gender</th>
+                  <th className="py-3 px-3">Modality</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cases.map(c => (
+                  <tr key={c._id} className="border-b border-white/5 hover:bg-[#102a43]/20 transition">
+                    <td className="py-3.5 px-3 text-cyan-400 font-mono font-bold text-[10px]">{c.caseId}</td>
+                    <td className="py-3.5 px-3 text-white font-semibold font-display">{c.patient?.name || 'N/A'}</td>
+                    <td className="py-3.5 px-3 text-slate-300 font-mono">{c.patient?.age}y / {c.patient?.gender}</td>
+                    <td className="py-3.5 px-3 text-slate-300 font-mono">{c.modality}</td>
+                    <td className="py-3.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-mono ${getStatusBadgeClass(c.status)}`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3 text-right">
+                      <button
+                        onClick={() => { setSelectedCase(c); setSelectedReport(c.radiologyReport); setActiveTab('workstation'); }}
+                        className="glass-btn-primary text-[10px] py-1 px-2.5 cursor-pointer ml-auto"
+                      >
+                        Ingest Case
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {cases.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-slate-500 italic font-display">No clinical scan cases in queue.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== TAB: DOCTORS DIRECTORY ==================== */}
+      {activeTab === 'doctors' && (
+        <div className="glass-panel p-5 rounded-2xl border border-white/5 space-y-4 font-sans">
+          <div className="border-b border-white/5 pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+              <FileText className="text-cyan-400" size={18} />
+              Attending Physicians Directory
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Hospital medical officers and attending physicians requesting radiology consults.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {radiologistsList.map(rad => (
+              <div key={rad._id} className="p-4 bg-[#061826]/60 rounded-xl border border-white/5 space-y-2">
+                <h3 className="font-bold text-white text-xs font-display">{rad.name}</h3>
+                <span className="text-[10px] text-cyan-400 font-mono font-semibold block">{rad.department || 'Clinical Medicine'}</span>
+                <span className="text-[9px] text-slate-400 block font-mono">Status: Active Clinician</span>
+              </div>
+            ))}
+            {radiologistsList.length === 0 && (
+              <div className="col-span-full py-12 text-center text-slate-500 italic font-display">No attending physicians listed.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== TAB: MODALITY CASES (X-RAY, CT SCAN, MRI) ==================== */}
+      {(activeTab === 'xray' || activeTab === 'ctscan' || activeTab === 'mri') && (
+        <div className="glass-panel p-5 rounded-2xl border border-white/5 space-y-4 font-sans">
+          <div className="border-b border-white/5 pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+              <Cpu className="text-cyan-400" size={18} />
+              {activeTab === 'xray' ? 'Chest X-Ray' : activeTab === 'ctscan' ? 'CT Scan' : 'MRI'} Imaging Queue
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Scan requests for {activeTab.toUpperCase()} modality.</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-slate-500 font-mono text-[9px] uppercase tracking-wider">
+                  <th className="py-3 px-3">Case ID</th>
+                  <th className="py-3 px-3">Patient</th>
+                  <th className="py-3 px-3">Modality</th>
+                  <th className="py-3 px-3">Priority</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cases.filter(c => {
+                  const mod = c.modality.toLowerCase();
+                  if (activeTab === 'xray') return mod.includes('x-ray') || mod.includes('xray');
+                  if (activeTab === 'ctscan') return mod.includes('ct');
+                  if (activeTab === 'mri') return mod.includes('mri');
+                  return true;
+                }).map(c => (
+                  <tr key={c._id} className="border-b border-white/5 hover:bg-[#102a43]/20 transition">
+                    <td className="py-3.5 px-3 text-cyan-400 font-mono font-bold text-[10px]">{c.caseId}</td>
+                    <td className="py-3.5 px-3 text-white font-semibold font-display">{c.patient?.name || 'N/A'}</td>
+                    <td className="py-3.5 px-3 text-slate-300 font-mono">{c.modality}</td>
+                    <td className="py-3.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-mono ${getPriorityBadgeClass(c.priorityLevel)}`}>
+                        {c.priorityLevel}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-mono ${getStatusBadgeClass(c.status)}`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3 text-right">
+                      <button
+                        onClick={() => { setSelectedCase(c); setSelectedReport(c.radiologyReport); setActiveTab('workstation'); }}
+                        className="glass-btn-primary text-[10px] py-1 px-2.5 cursor-pointer ml-auto"
+                      >
+                        Ingest Case
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {cases.filter(c => {
+                  const mod = c.modality.toLowerCase();
+                  if (activeTab === 'xray') return mod.includes('x-ray') || mod.includes('xray');
+                  if (activeTab === 'ctscan') return mod.includes('ct');
+                  if (activeTab === 'mri') return mod.includes('mri');
+                  return true;
+                }).length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-slate-500 italic font-display">No scans pending for this modality.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== TAB: RADIOLOGY ANALYTICS ==================== */}
+      {activeTab === 'analytics' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-sans">
+          <StatCard 
+            title="Pending Scans" 
+            value={cases.filter(c => c.status === 'Awaiting Imaging').length} 
+            icon={Clock} 
+            colorClass="text-cyan-400"
+            sparklineColor="#00c6ff"
+          />
+          <StatCard 
+            title="Ingested Scans Today" 
+            value={cases.filter(c => c.status !== 'Awaiting Imaging').length} 
+            icon={CheckCircle} 
+            colorClass="text-brand-400"
+            sparklineColor="#3A86FF"
+          />
+          <StatCard 
+            title="AI Model Accuracy" 
+            value="94.2%" 
+            icon={Cpu} 
+            colorClass="text-emerald-400"
+            sparklineColor="#10B981"
+          />
+          <StatCard 
+            title="Avg Diagnostic Speed" 
+            value="18m" 
+            icon={Sparkles} 
+            colorClass="text-cyan-400"
+            sparklineColor="#00c6ff"
+          />
+        </div>
+      )}
+
+      {/* ==================== TAB: MRI LAB ==================== */}
+      {activeTab === 'mri_lab' && (
+        <MRIDashboard
+          cases={cases}
+          selectedCase={selectedCase}
+          setSelectedCase={setSelectedCase}
+          selectedReport={selectedReport}
+          setSelectedReport={setSelectedReport}
+          loading={loading}
+          setLoading={setLoading}
+          auth={auth}
+          API_BASE={API_BASE}
+          getPriorityBadgeClass={getPriorityBadgeClass}
+          getStatusBadgeClass={getStatusBadgeClass}
+          fetchDashboardData={fetchDashboardData}
+        />
+      )}
+
+      {/* ==================== TAB: RADIOLOGIST SETTINGS ==================== */}
+      {activeTab === 'settings' && (
+        <div className="max-w-2xl mx-auto glass-panel p-6 rounded-2xl space-y-6 font-sans text-xs">
+          <div className="border-b border-white/5 pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+              <Upload size={18} className="text-cyan-400" />
+              Radiologist PACS Workstation Preferences
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Configure DICOM viewer contrast, auto-run AI inference, and windowing defaults.</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-[#061826]/60 rounded-xl border border-white/5 flex justify-between items-center">
+              <div>
+                <span className="font-bold text-white block">Auto-trigger AI Forward Pass on Upload</span>
+                <span className="text-[10px] text-slate-400">Automatically run DenseNet121 inference when scan file is ingested</span>
+              </div>
+              <input type="checkbox" defaultChecked className="accent-cyan-400 cursor-pointer w-4 h-4" />
+            </div>
+
+            <div className="p-4 bg-[#061826]/60 rounded-xl border border-white/5 flex justify-between items-center">
+              <div>
+                <span className="font-bold text-white block">High Contrast DICOM Bounding Boxes Overlay</span>
+                <span className="text-[10px] text-slate-400">Render GradCAM heatmaps and anatomical bounding boxes in high opacity</span>
+              </div>
+              <input type="checkbox" defaultChecked className="accent-cyan-400 cursor-pointer w-4 h-4" />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

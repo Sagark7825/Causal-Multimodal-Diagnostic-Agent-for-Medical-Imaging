@@ -8,6 +8,8 @@ export default function SignupView({
   regPassword, setRegPassword,
   regRole, setRegRole,
   regDept, setRegDept,
+  regCert, setRegCert,
+  regCertName, setRegCertName,
   showRegPassword, setShowRegPassword,
   loading,
   handleRegister,
@@ -145,6 +147,7 @@ export default function SignupView({
                 >
                   <option value="Doctor">Doctor</option>
                   <option value="Radiologist">Radiologist</option>
+                  <option value="Admin">Admin</option>
                 </select>
               </div>
               <div>
@@ -153,12 +156,49 @@ export default function SignupView({
                   type="text" 
                   required 
                   className="w-full glass-input"
-                  placeholder="Radiology" 
+                  placeholder="Pulmonology" 
                   value={regDept}
                   onChange={(e) => setRegDept(e.target.value)}
                 />
               </div>
             </div>
+
+            {/* Degree Completion Certificate Upload for Doctors */}
+            {regRole === 'Doctor' && (
+              <div className="p-3.5 bg-blue-950/30 rounded-2xl border border-blue-800/40 space-y-2">
+                <label className="block text-[10px] font-bold text-blue-300 uppercase tracking-wider">
+                  Degree Completion Certificate (PDF / Image) <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    required={regRole === 'Doctor'}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setRegCertName(file.name);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setRegCert(reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
+                  />
+                </div>
+                {regCertName ? (
+                  <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 font-semibold">
+                    ✓ Certificate Attached: {regCertName}
+                  </div>
+                ) : (
+                  <p className="text-[9px] text-slate-400 leading-tight">
+                    Upload your official medical degree certificate for Admin verification before login authorization.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Submit */}
             <button

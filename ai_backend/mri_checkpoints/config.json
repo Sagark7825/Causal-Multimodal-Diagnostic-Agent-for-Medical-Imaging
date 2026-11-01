@@ -1,0 +1,10 @@
+{
+  "data_dir": "data/brain_tumor_mri",
+  "architecture": "efficientnet_b0",
+  "num_classes": 4,
+  "image_size": 224,
+  "trained_on_gpu": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "val_accuracy": 0.986904761904762,
+  "test_accuracy": 0.9425,
+  "test_macro_f1": 0.9414
+}

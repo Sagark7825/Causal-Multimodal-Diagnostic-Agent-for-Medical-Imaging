@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -73,12 +74,16 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // @route   POST api/reports/upload
-// @desc    Upload image/DICOM file for a case (Radiologist only)
-router.post('/upload', protect, authorize('Radiologist', 'Doctor'), upload.single('file'), async (req, res) => {
+// @desc    Upload image/DICOM file for a case (Radiologist, Doctor, Admin)
+router.post('/upload', protect, authorize('Radiologist', 'Doctor', 'Admin'), upload.single('file'), async (req, res) => {
   const { caseId } = req.body;
   
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'Medical scan image file is required' });
+  }
+
+  if (!caseId || !mongoose.Types.ObjectId.isValid(caseId)) {
+    return res.status(400).json({ success: false, message: 'Valid Clinical Case ID is required' });
   }
 
   try {
@@ -89,10 +94,12 @@ router.post('/upload', protect, authorize('Radiologist', 'Doctor'), upload.singl
 
     const relativeScanUrl = `/uploads/${req.file.filename}`;
 
+    const patientId = clinicalCase.patient?._id || clinicalCase.patient;
+
     // Create Radiology Report
     const report = await RadiologyReport.create({
       clinicalCase: clinicalCase._id,
-      patient: clinicalCase.patient._id,
+      patient: patientId,
       scanUrl: relativeScanUrl,
       createdBy: req.user._id,
       status: 'Draft'
@@ -103,11 +110,30 @@ router.post('/upload', protect, authorize('Radiologist', 'Doctor'), upload.singl
     let aiPrediction = {};
     let dicomMetadata = {};
 
+    // Build full patient data for LLM reasoning context
+    const patient = clinicalCase.patient;
+    const patientDataForAI = {
+      name            : patient?.name || 'Unknown',
+      age             : patient?.age || '',
+      gender          : patient?.gender || '',
+      currentSymptoms : patient?.currentSymptoms || clinicalCase.chiefComplaint || '',
+      medicalHistory  : patient?.medicalHistory || '',
+      smokingHistory  : patient?.smokingHistory || '',
+      allergies       : patient?.allergies || '',
+      currentMedications: patient?.currentMedications || '',
+      vitalSigns      : patient?.vitalSigns || {},
+      labValues       : patient?.labValues || {},
+    };
+
     const FormData = require('form-data');
     const form = new FormData();
-    form.append('modality', clinicalCase.modality || 'Chest X-ray');
-    form.append('clinical_notes', clinicalCase.chiefComplaint || '');
-    form.append('patient_id', clinicalCase.patient?.patientId || 'PT-9999');
+    form.append('modality',          clinicalCase.modality || 'Chest X-ray');
+    form.append('clinical_notes',    clinicalCase.chiefComplaint || '');
+    form.append('patient_id',        patient?.patientId || 'PT-9999');
+    form.append('radiologist_notes', '');  // Not yet available at upload time
+    form.append('doctor_notes',      clinicalCase.clinicalNotes || '');
+    form.append('use_llm',           (req.body?.use_llm === 'true' || req.body?.use_llm === true) ? 'true' : 'false');
+    form.append('patient_data_json', JSON.stringify(patientDataForAI));
     
     const filePath = path.join(__dirname, '..', relativeScanUrl);
     if (fs.existsSync(filePath)) {
@@ -118,23 +144,39 @@ router.post('/upload', protect, authorize('Radiologist', 'Doctor'), upload.singl
       const response = await axios.post(`${aiBackendUrl}/api/v1/diagnose`, form, {
         headers: { ...form.getHeaders() },
         maxContentLength: Infinity,
-        maxBodyLength: Infinity
+        maxBodyLength: Infinity,
+        timeout: 300000  // 5 minutes — LLM reasoning takes time
       });
 
       if (response.data && response.data.success) {
         const rawAi = response.data.ai_prediction;
         aiPrediction = {
-          predictedDisease: rawAi.disease,
-          confidenceScore: rawAi.confidence,
-          affectedRegion: rawAi.visualExplanation?.boundingBoxes?.[0]?.label || 'Affected region',
+          predictedDisease    : rawAi.disease || 'Unknown',
+          confidenceScore     : rawAi.confidence || 0.85,
+          affectedRegion      : rawAi.visualExplanation?.boundingBoxes?.[0]?.label || 'Affected region',
           explainabilityHeatmap: rawAi.visualExplanation?.heatmapUrl || relativeScanUrl,
-          severityLevel: rawAi.severity || 'Moderate',
-          suggestedFindings: rawAi.evidenceSummary || 'Consolidation detected.',
-          suggestedObservation: rawAi.textExplanation || 'Suggestive of Pneumonic infiltration.',
-          differentialDiagnosis: ['Atelectasis', 'Bronchitis'],
-          boundingBoxes: rawAi.visualExplanation?.boundingBoxes || [],
-          causalReasoning: rawAi.causalReasoning || {},
-          indicators: rawAi.indicators || {}
+          heatmapBase64       : rawAi.visualExplanation?.heatmapBase64 || '',
+          severityLevel       : rawAi.severity || 'Moderate',
+          suggestedFindings   : rawAi.evidenceSummary || rawAi.reasoningNarrative?.slice(0, 300) || 'AI analysis complete.',
+          suggestedObservation: rawAi.suggestedObservation || rawAi.textExplanation || '',
+          // LLM Reasoning fields
+          reasoningNarrative  : rawAi.reasoningNarrative || '',
+          differentialDiagnosis: rawAi.differentialDiagnosis || [],
+          positiveFindings    : rawAi.positiveFindings || [],
+          rawProbabilities    : rawAi.rawProbabilities || {},
+          uncertaintyAnalysis : rawAi.uncertaintyAnalysis || {},
+          limitations         : rawAi.limitations || [],
+          llmModelUsed        : rawAi.llmModelUsed || '',
+          reasoningSource     : rawAi.reasoningSource || '',
+          // Treatment
+          treatmentRecommendations: rawAi.treatmentRecommendations || [],
+          drugRecommendations     : rawAi.drugRecommendations || [],
+          followUpRecommendations : rawAi.followUpRecommendations || [],
+          investigations          : rawAi.investigations || [],
+          // Visual
+          boundingBoxes       : rawAi.visualExplanation?.boundingBoxes || [],
+          causalReasoning     : rawAi.causalReasoning || {},
+          indicators          : rawAi.indicators || {}
         };
         dicomMetadata = response.data.dicom_metadata || {};
       }
@@ -172,7 +214,7 @@ router.post('/upload', protect, authorize('Radiologist', 'Doctor'), upload.singl
 
     const predictionDoc = await AIPrediction.create({
       clinicalCase: clinicalCase._id,
-      patient: clinicalCase.patient._id,
+      patient: patientId,
       ...aiPrediction
     });
 
@@ -194,15 +236,38 @@ router.post('/upload', protect, authorize('Radiologist', 'Doctor'), upload.singl
       ipAddress: req.ip
     });
 
-    res.status(201).json({ success: true, report, clinicalCase });
+    const updatedReport = await RadiologyReport.findById(report._id)
+      .populate('clinicalCase')
+      .populate('patient')
+      .populate('createdBy', 'name role')
+      .populate('aiPrediction');
+
+    const updatedCase = await ClinicalCase.findById(clinicalCase._id)
+      .populate('patient')
+      .populate('createdBy', 'name role')
+      .populate('assignedRadiologist', 'name role')
+      .populate('radiologyReport')
+      .populate('aiPrediction');
+
+    res.status(201).json({
+      success: true,
+      report: updatedReport,
+      clinicalCase: updatedCase,
+      aiPrediction: predictionDoc
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('[ReportsRoute Error /upload]:', err);
+    res.status(500).json({ success: false, message: err.message || 'Server upload processing failed', error: String(err) });
   }
 });
 
 // @route   POST api/reports/:id/run-ai
 // @desc    Trigger AI processing on the uploaded scan
-router.post('/:id/run-ai', protect, authorize('Radiologist', 'Doctor'), async (req, res) => {
+router.post('/:id/run-ai', protect, authorize('Radiologist', 'Doctor', 'Admin'), async (req, res) => {
+  if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ success: false, message: 'Valid Radiology Report ID is required' });
+  }
+
   try {
     const report = await RadiologyReport.findById(req.params.id).populate('clinicalCase').populate('patient');
     if (!report) {
@@ -215,11 +280,33 @@ router.post('/:id/run-ai', protect, authorize('Radiologist', 'Doctor'), async (r
     let aiPrediction = {};
     let dicomMetadata = {};
 
+    // Build full patient data for LLM reasoning
+    const patient = report.patient;
+    const patientDataForAI = {
+      name              : patient?.name || 'Unknown',
+      age               : patient?.age || '',
+      gender            : patient?.gender || '',
+      currentSymptoms   : patient?.currentSymptoms || clinicalCase.chiefComplaint || '',
+      medicalHistory    : patient?.medicalHistory || '',
+      smokingHistory    : patient?.smokingHistory || '',
+      allergies         : patient?.allergies || '',
+      currentMedications: patient?.currentMedications || '',
+      vitalSigns        : patient?.vitalSigns || {},
+      labValues         : patient?.labValues || {},
+    };
+
+    // Include radiologist notes if the report already has them
+    const existingRadiologistNotes = report.radiologistObservation || '';
+
     const FormData = require('form-data');
     const form = new FormData();
-    form.append('modality', clinicalCase.modality || 'Chest X-ray');
-    form.append('clinical_notes', clinicalCase.chiefComplaint || '');
-    form.append('patient_id', report.patient?.patientId || 'PT-9999');
+    form.append('modality',          clinicalCase.modality || 'Chest X-ray');
+    form.append('clinical_notes',    clinicalCase.chiefComplaint || '');
+    form.append('patient_id',        patient?.patientId || 'PT-9999');
+    form.append('radiologist_notes', existingRadiologistNotes);
+    form.append('doctor_notes',      clinicalCase.clinicalNotes || '');
+    form.append('use_llm',           req.body?.use_llm === 'true' ? 'true' : 'false');
+    form.append('patient_data_json', JSON.stringify(patientDataForAI));
     
     const filePath = path.join(__dirname, '..', report.scanUrl);
     if (fs.existsSync(filePath)) {
@@ -230,23 +317,39 @@ router.post('/:id/run-ai', protect, authorize('Radiologist', 'Doctor'), async (r
       const response = await axios.post(`${aiBackendUrl}/api/v1/diagnose`, form, {
         headers: { ...form.getHeaders() },
         maxContentLength: Infinity,
-        maxBodyLength: Infinity
+        maxBodyLength: Infinity,
+        timeout: 300000  // 5 minutes — LLM reasoning takes time
       });
 
       if (response.data && response.data.success) {
         const rawAi = response.data.ai_prediction;
         aiPrediction = {
-          predictedDisease: rawAi.disease,
-          confidenceScore: rawAi.confidence,
-          affectedRegion: rawAi.visualExplanation?.boundingBoxes?.[0]?.label || 'Affected region',
+          predictedDisease    : rawAi.disease,
+          confidenceScore     : rawAi.confidence,
+          affectedRegion      : rawAi.visualExplanation?.boundingBoxes?.[0]?.label || 'Affected region',
           explainabilityHeatmap: rawAi.visualExplanation?.heatmapUrl || report.scanUrl,
-          severityLevel: rawAi.severity || 'Moderate',
-          suggestedFindings: rawAi.evidenceSummary || 'Consolidation detected.',
-          suggestedObservation: rawAi.textExplanation || 'Suggestive of Pneumonic infiltration.',
-          differentialDiagnosis: ['Atelectasis', 'Bronchitis'],
-          boundingBoxes: rawAi.visualExplanation?.boundingBoxes || [],
-          causalReasoning: rawAi.causalReasoning || {},
-          indicators: rawAi.indicators || {}
+          heatmapBase64       : rawAi.visualExplanation?.heatmapBase64 || '',
+          severityLevel       : rawAi.severity || 'Moderate',
+          suggestedFindings   : rawAi.evidenceSummary || rawAi.reasoningNarrative?.slice(0, 300) || 'AI analysis complete.',
+          suggestedObservation: rawAi.suggestedObservation || rawAi.textExplanation || '',
+          // LLM Reasoning
+          reasoningNarrative  : rawAi.reasoningNarrative || '',
+          differentialDiagnosis: rawAi.differentialDiagnosis || [],
+          positiveFindings    : rawAi.positiveFindings || [],
+          rawProbabilities    : rawAi.rawProbabilities || {},
+          uncertaintyAnalysis : rawAi.uncertaintyAnalysis || {},
+          limitations         : rawAi.limitations || [],
+          llmModelUsed        : rawAi.llmModelUsed || '',
+          reasoningSource     : rawAi.reasoningSource || '',
+          // Treatment
+          treatmentRecommendations: rawAi.treatmentRecommendations || [],
+          drugRecommendations     : rawAi.drugRecommendations || [],
+          followUpRecommendations : rawAi.followUpRecommendations || [],
+          investigations          : rawAi.investigations || [],
+          // Visual
+          boundingBoxes       : rawAi.visualExplanation?.boundingBoxes || [],
+          causalReasoning     : rawAi.causalReasoning || {},
+          indicators          : rawAi.indicators || {}
         };
         dicomMetadata = response.data.dicom_metadata || {};
       }
@@ -282,9 +385,10 @@ router.post('/:id/run-ai', protect, authorize('Radiologist', 'Doctor'), async (r
       };
     }
 
+    const patientId = report.patient?._id || report.patient || clinicalCase?.patient?._id || clinicalCase?.patient;
     const predictionDoc = await AIPrediction.create({
       clinicalCase: clinicalCase._id,
-      patient: report.patient._id,
+      patient: patientId,
       ...aiPrediction
     });
 
@@ -305,9 +409,23 @@ router.post('/:id/run-ai', protect, authorize('Radiologist', 'Doctor'), async (r
       ipAddress: req.ip
     });
 
-    res.json({ success: true, report, aiPrediction: predictionDoc });
+    const updatedReport = await RadiologyReport.findById(report._id)
+      .populate('clinicalCase')
+      .populate('patient')
+      .populate('createdBy', 'name role')
+      .populate('aiPrediction');
+
+    const updatedCase = await ClinicalCase.findById(clinicalCase._id)
+      .populate('patient')
+      .populate('createdBy', 'name role')
+      .populate('assignedRadiologist', 'name role')
+      .populate('radiologyReport')
+      .populate('aiPrediction');
+
+    res.json({ success: true, report: updatedReport, clinicalCase: updatedCase, aiPrediction: predictionDoc });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('[ReportsRoute Error /run-ai]:', err);
+    res.status(500).json({ success: false, message: err.message || 'AI processing failed', error: String(err) });
   }
 });
 

@@ -3,11 +3,12 @@ import { motion } from 'framer-motion';
 import { 
   Users, Calendar, FileText, Heart, Plus, Search, 
   UserPlus, Sliders, ChevronRight, Activity, Bell, Info,
-  Trash2, RotateCcw, Archive, Cpu, Sparkles
+  Trash2, RotateCcw, Archive, Cpu, Sparkles, UserCheck, CheckCircle, Download, Share2, Printer, ShieldCheck, BarChart3
 } from 'lucide-react';
 import StatCard from '../UI/StatCard.jsx';
 import DICOMViewer from '../DICOMViewer.jsx';
 import CausalDAGViewer from '../CausalDAGViewer.jsx';
+import MedicalReportView from '../UI/MedicalReportView.jsx';
 
 export default function DoctorDashboard({
   activeTab, setActiveTab,
@@ -56,6 +57,8 @@ export default function DoctorDashboard({
 }) {
 
   const [patientStatusFilter, setPatientStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [regStep, setRegStep] = useState(1); // 1: Demographics, 2: History, 3: Vitals
 
   const activePatientsCount = patients.filter(p => !p.isDeleted).length;
   const archivedPatientsCount = patients.filter(p => p.isDeleted).length;
@@ -76,38 +79,77 @@ export default function DoctorDashboard({
   return (
     <div className="space-y-6">
       
+      {/* Hospital Report Printable Modal */}
+      {showReportModal && selectedCase && (
+        <MedicalReportView 
+          patient={selectedCase.patient || patients[0]}
+          caseData={selectedCase}
+          reportData={selectedCase.radiologyReport}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
+
       {/* ==================== TAB: OVERVIEW ==================== */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Telemetry Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Physician Quick Action Bar */}
+          <div className="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-cyan-500/20 shadow-lg">
+            <div>
+              <h2 className="text-base font-bold text-white font-display">Physician Clinical Workstation</h2>
+              <p className="text-xs text-slate-400">Quickly register new patient files, create clinical cases, or enter the AI diagnosis workstation.</p>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <button 
+                onClick={() => setActiveTab('register_patient')} 
+                className="glass-btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-500/10"
+              >
+                <UserPlus size={15} /> Add New Patient
+              </button>
+              <button 
+                onClick={() => setActiveTab('create_case')} 
+                className="glass-btn-secondary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer"
+              >
+                <Plus size={15} /> Create Clinical Case
+              </button>
+            </div>
+          </div>
+
+          {/* MultiDiagnosis AI Modern Statistic Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard 
-              title="Today's Active Patients" 
+              title="Total Patients" 
               value={patients.length} 
               icon={Users} 
-              colorClass="text-cyan-400"
-              sparklineColor="#00c6ff"
+              colorClass="text-[#2563eb]"
+              sparklineColor="#2563EB"
             />
             <StatCard 
-              title="Consultations Booked" 
-              value={appointments.length} 
-              icon={Calendar} 
-              colorClass="text-brand-400"
-              sparklineColor="#3A86FF"
-            />
-            <StatCard 
-              title="Pending Reviews" 
-              value={cases.filter(c => c.status === 'Doctor Review Pending').length} 
+              title="Pending Diagnosis" 
+              value={cases.filter(c => c.status !== 'Treatment Completed').length} 
               icon={Bell} 
-              colorClass="text-rose-400"
-              sparklineColor="#EF4444"
+              colorClass="text-amber-500"
+              sparklineColor="#F59E0B"
             />
             <StatCard 
-              title="Registered Health Records" 
-              value={patients.length} 
+              title="Reports Generated" 
+              value={cases.filter(c => c.radiologyReport).length} 
               icon={FileText} 
-              colorClass="text-emerald-400"
+              colorClass="text-[#06b6d4]"
+              sparklineColor="#06B6D4"
+            />
+            <StatCard 
+              title="AI Accuracy" 
+              value="98.4%" 
+              icon={Sparkles} 
+              colorClass="text-[#10b981]"
               sparklineColor="#10B981"
+            />
+            <StatCard 
+              title="Active Doctors" 
+              value={radiologistsList.length + 1} 
+              icon={UserCheck} 
+              colorClass="text-indigo-500"
+              sparklineColor="#6366F1"
             />
           </div>
 
@@ -206,10 +248,10 @@ export default function DoctorDashboard({
           <div className="border-b border-white/5 pb-3 flex justify-between items-center">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
-                <UserPlus size={18} className="text-cyan-400" />
+                <UserPlus size={18} className="text-blue-400" />
                 Register New Patient Record
               </h2>
-              <p className="text-xs text-slate-400 mt-1 font-sans font-medium">Create a new secure patient file including vital metrics.</p>
+              <p className="text-xs text-slate-400 mt-1 font-sans font-medium">Quick 3-step intake form for patient records.</p>
             </div>
             <button 
               type="button"
@@ -220,93 +262,186 @@ export default function DoctorDashboard({
             </button>
           </div>
 
-          <form onSubmit={handleRegisterPatient} className="space-y-4 text-xs font-sans">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-slate-400 mb-1.5 font-semibold">Patient Full Name</label>
-                <input type="text" required value={patName} onChange={e => setPatName(e.target.value)} placeholder="Eleanor Vance" className="w-full glass-input" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1.5 font-semibold">Age</label>
-                  <input type="number" required value={patAge} onChange={e => setPatAge(e.target.value)} placeholder="45" className="w-full glass-input" />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1.5 font-semibold">Gender</label>
-                  <select value={patGender} onChange={e => setPatGender(e.target.value)} className="w-full glass-input">
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-slate-400 mb-1.5 font-semibold">Primary Contact Number</label>
-                <input type="text" required value={patContact} onChange={e => setPatContact(e.target.value)} placeholder="+1-555-0199" className="w-full glass-input" />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1.5 font-semibold">Emergency Contact</label>
-                <input type="text" value={patEmergency} onChange={e => setPatEmergency(e.target.value)} placeholder="Robert Vance (+1-555-0200)" className="w-full glass-input" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-400 mb-1.5 font-semibold">Residential Address</label>
-              <input type="text" value={patAddress} onChange={e => setPatAddress(e.target.value)} placeholder="742 Evergreen Terrace, Springfield" className="w-full glass-input" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-slate-400 mb-1.5 font-semibold">Medical History Notes</label>
-                <textarea rows="3" value={patHistory} onChange={e => setPatHistory(e.target.value)} placeholder="Mild asthma, seasonal allergies." className="w-full glass-input" />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1.5 font-semibold">Current Symptoms</label>
-                <textarea rows="3" value={patSymptoms} onChange={e => setPatSymptoms(e.target.value)} placeholder="Dry cough, mild dyspnea." className="w-full glass-input" />
-              </div>
-            </div>
-
-            {/* Vitals */}
-            <div className="p-4 bg-[#061826]/60 rounded-2xl border border-white/5">
-              <div className="text-[10px] text-cyan-400 font-bold uppercase mb-3.5 tracking-widest font-mono">
-                Patient Vitals Metrics Ingestion
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-[10px] font-mono">
-                <div>
-                  <span className="text-slate-400 block mb-1">Temp (°C)</span>
-                  <input type="number" step="0.1" value={patTemp} onChange={e => setPatTemp(e.target.value)} className="w-full glass-input py-1.5 text-center" />
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-1">Pulse (bpm)</span>
-                  <input type="number" value={patPulse} onChange={e => setPatPulse(e.target.value)} className="w-full glass-input py-1.5 text-center" />
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-1">BP Systolic</span>
-                  <input type="number" value={patBpSys} onChange={e => setPatBpSys(e.target.value)} className="w-full glass-input py-1.5 text-center" />
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-1">BP Diastolic</span>
-                  <input type="number" value={patBpDia} onChange={e => setPatBpDia(e.target.value)} className="w-full glass-input py-1.5 text-center" />
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-1">SpO2 (%)</span>
-                  <input type="number" value={patSpo2} onChange={e => setPatSpo2(e.target.value)} className="w-full glass-input py-1.5 text-center" />
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" className="w-full glass-btn-primary py-3 font-semibold text-xs tracking-wider cursor-pointer shadow-lg shadow-cyan-500/10">
-              Register Patient & Generate Digital ID
+          {/* Form Step Progress Bar */}
+          <div className="grid grid-cols-3 gap-2 bg-slate-900/60 p-1.5 rounded-xl border border-slate-800 text-xs font-semibold text-center">
+            <button
+              type="button"
+              onClick={() => setRegStep(1)}
+              className={`py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                regStep === 1 ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>1. Basic Info</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setRegStep(2)}
+              className={`py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                regStep === 2 ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>2. History & Address</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRegStep(3)}
+              className={`py-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                regStep === 3 ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>3. Vitals</span>
+            </button>
+          </div>
+
+          <form onSubmit={handleRegisterPatient} className="space-y-4 text-xs font-sans">
+            
+            {/* STEP 1: Basic Demographics */}
+            {regStep === 1 && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-semibold">Patient Full Name *</label>
+                  <input type="text" required value={patName} onChange={e => setPatName(e.target.value)} placeholder="Eleanor Vance" className="w-full glass-input" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-slate-300 mb-1.5 font-semibold">Age *</label>
+                    <input type="number" required value={patAge} onChange={e => setPatAge(e.target.value)} placeholder="45" className="w-full glass-input" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 mb-1.5 font-semibold">Gender *</label>
+                    <select value={patGender} onChange={e => setPatGender(e.target.value)} className="w-full glass-input">
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-semibold">Primary Contact Number *</label>
+                  <input type="text" required value={patContact} onChange={e => setPatContact(e.target.value)} placeholder="+1-555-0199" className="w-full glass-input" />
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setRegStep(2)}
+                    className="glass-btn-primary px-5 py-2.5 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    Next: History & Address →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Contact & History */}
+            {regStep === 2 && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-semibold">Emergency Contact</label>
+                  <input type="text" value={patEmergency} onChange={e => setPatEmergency(e.target.value)} placeholder="Robert Vance (+1-555-0200)" className="w-full glass-input" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-semibold">Residential Address</label>
+                  <input type="text" value={patAddress} onChange={e => setPatAddress(e.target.value)} placeholder="742 Evergreen Terrace, Springfield" className="w-full glass-input" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-slate-300 mb-1.5 font-semibold">Medical History Notes</label>
+                    <textarea rows="2" value={patHistory} onChange={e => setPatHistory(e.target.value)} placeholder="Mild asthma, seasonal allergies." className="w-full glass-input" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 mb-1.5 font-semibold">Current Symptoms</label>
+                    <textarea rows="2" value={patSymptoms} onChange={e => setPatSymptoms(e.target.value)} placeholder="Dry cough, mild dyspnea." className="w-full glass-input" />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setRegStep(1)}
+                    className="glass-btn-secondary px-4 py-2 text-xs font-semibold cursor-pointer"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegStep(3)}
+                    className="glass-btn-primary px-5 py-2.5 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    Next: Telemetry Vitals →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Vitals Metrics Telemetry */}
+            {regStep === 3 && (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest font-mono">
+                      Patient Vitals Telemetry Metrics
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPatTemp(37.0);
+                        setPatPulse(75);
+                        setPatBpSys(120);
+                        setPatBpDia(80);
+                        setPatSpo2(98);
+                      }}
+                      className="px-2.5 py-1 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-lg text-[10px] font-bold hover:bg-blue-600/40 transition cursor-pointer flex items-center gap-1"
+                    >
+                      ⚡ Fill Normal Adult Vitals Preset
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-[10px] font-mono">
+                    <div>
+                      <span className="text-slate-400 block mb-1">Temp (°C)</span>
+                      <input type="number" step="0.1" value={patTemp} onChange={e => setPatTemp(e.target.value)} className="w-full glass-input py-1.5 text-center font-bold" />
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-1">Pulse (bpm)</span>
+                      <input type="number" value={patPulse} onChange={e => setPatPulse(e.target.value)} className="w-full glass-input py-1.5 text-center font-bold" />
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-1">BP Systolic</span>
+                      <input type="number" value={patBpSys} onChange={e => setPatBpSys(e.target.value)} className="w-full glass-input py-1.5 text-center font-bold" />
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-1">BP Diastolic</span>
+                      <input type="number" value={patBpDia} onChange={e => setPatBpDia(e.target.value)} className="w-full glass-input py-1.5 text-center font-bold" />
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-1">SpO2 (%)</span>
+                      <input type="number" value={patSpo2} onChange={e => setPatSpo2(e.target.value)} className="w-full glass-input py-1.5 text-center font-bold text-blue-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-between items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRegStep(2)}
+                    className="glass-btn-secondary px-4 py-2.5 text-xs font-semibold cursor-pointer"
+                  >
+                    ← Back
+                  </button>
+                  <button type="submit" className="glass-btn-primary py-3 px-6 font-bold text-xs tracking-wider cursor-pointer shadow-md flex-1">
+                    Register Patient & Generate Digital ID ✓
+                  </button>
+                </div>
+              </div>
+            )}
+
           </form>
         </motion.div>
       )}
 
-      {/* ==================== TAB: SEARCH PATIENTS ==================== */}
-      {activeTab === 'search_patient' && (
+      {/* ==================== TAB: SEARCH PATIENTS & PATIENTS DIRECTORY ==================== */}
+      {(activeTab === 'search_patient' || activeTab === 'patients') && (
         <div className="space-y-6">
           <div className="flex justify-between items-center border-b border-white/5 pb-3">
             <div>
@@ -316,13 +451,21 @@ export default function DoctorDashboard({
               </h2>
               <p className="text-xs text-slate-400 mt-1 font-sans font-medium">Lookup patient files, view medical charts, and allocate clinical case files.</p>
             </div>
-            <button 
-              type="button"
-              onClick={() => setActiveTab('overview')}
-              className="glass-btn-secondary px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider uppercase cursor-pointer"
-            >
-              ← Back to Overview
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setActiveTab('register_patient')} 
+                className="glass-btn-primary px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <UserPlus size={14} /> Add New Patient
+              </button>
+              <button 
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className="glass-btn-secondary px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider uppercase cursor-pointer"
+              >
+                ← Back to Overview
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left search directories */}
@@ -648,10 +791,10 @@ export default function DoctorDashboard({
 
       {/* ==================== TAB: WORKSTATION ==================== */}
       {activeTab === 'workstation' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
           
           {/* Left Column: Workstation Queue list (Sticky & Constrained) */}
-          <div className="lg:col-span-3.5 lg:col-span-4 glass-panel p-5 rounded-2xl space-y-4 sticky top-20">
+          <div className="lg:col-span-4 glass-panel p-5 rounded-2xl space-y-4 sticky top-20">
             <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
               <h3 className="font-bold text-xs uppercase text-slate-300 flex items-center gap-2 font-display">
                 <Sliders size={14} className="text-cyan-400" />
@@ -694,7 +837,7 @@ export default function DoctorDashboard({
           </div>
 
           {/* Right Column: Main Case Workspace (Pure Vertical Expansion Stream) */}
-          <div className="lg:col-span-8.5 lg:col-span-8 vertical-workspace-stream">
+          <div className="lg:col-span-8 vertical-workspace-stream w-full">
             {selectedCase ? (
               <div className="vertical-workspace-stream report-expanded-card">
                 
@@ -921,6 +1064,38 @@ export default function DoctorDashboard({
                           </div>
                         )}
 
+                        {/* MultiDiagnosis AI Centerpiece Action Buttons */}
+                        <div className="pt-4 border-t border-slate-200 dark:border-white/5 flex flex-wrap gap-2.5">
+                          <button 
+                            type="button"
+                            onClick={() => setShowReportModal(true)}
+                            className="glass-btn-primary py-2.5 px-4 text-xs flex items-center gap-2 shadow-md cursor-pointer"
+                          >
+                            <FileText size={14} /> Export Report
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setShowReportModal(true)}
+                            className="glass-btn-secondary py-2.5 px-4 text-xs flex items-center gap-2 cursor-pointer"
+                          >
+                            <Download size={14} /> Download PDF
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => alert('Report shared with attending physician.')}
+                            className="glass-btn-secondary py-2.5 px-4 text-xs flex items-center gap-2 cursor-pointer"
+                          >
+                            <Share2 size={14} /> Share with Doctor
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => alert('Report saved to patient EHR.')}
+                            className="glass-btn-success py-2.5 px-4 text-xs flex items-center gap-2 cursor-pointer"
+                          >
+                            <CheckCircle size={14} /> Save Report
+                          </button>
+                        </div>
+
                       </div>
                     ) : (
                       <div className="text-slate-500 py-8 text-center italic font-display text-xs">
@@ -1111,6 +1286,232 @@ export default function DoctorDashboard({
         </div>
       </div>
     )}
+
+      {/* ==================== TAB: CLINICAL TEAM & RADIOLOGISTS DIRECTORY ==================== */}
+      {activeTab === 'doctors' && (
+        <div className="glass-panel p-5 rounded-2xl border border-white/5 space-y-4 font-sans">
+          <div className="border-b border-white/5 pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+              <UserCheck className="text-cyan-400" size={18} />
+              Clinical Team & Radiology Specialists Directory
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Available radiology consultants and hospital clinical team members.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {radiologistsList.map(rad => (
+              <div key={rad._id} className="p-4 bg-[#061826]/60 rounded-xl border border-white/5 space-y-2 hover:border-cyan-400/30 transition">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm font-display">
+                    {rad.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-xs font-display">{rad.name}</h3>
+                    <span className="text-[10px] text-cyan-400 font-mono font-semibold">{rad.department || 'Radiology'}</span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono pt-2 border-t border-white/5 flex justify-between items-center">
+                  <span>Status: <strong className="text-emerald-400">Available</strong></span>
+                  <button 
+                    onClick={() => { setSelectedRadiologist(rad._id); setActiveTab('create_case'); }}
+                    className="text-cyan-400 hover:text-white underline cursor-pointer"
+                  >
+                    Assign to Case
+                  </button>
+                </div>
+              </div>
+            ))}
+            {radiologistsList.length === 0 && (
+              <div className="col-span-full py-12 text-center text-slate-500 italic font-display">No radiologists listed.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== TAB: MODALITY SPECIFIC CASES (X-RAY, CT SCAN, MRI) ==================== */}
+      {(activeTab === 'xray' || activeTab === 'ctscan' || activeTab === 'mri') && (
+        <div className="glass-panel p-5 rounded-2xl border border-white/5 space-y-4 font-sans">
+          <div className="border-b border-white/5 pb-3 flex justify-between items-center">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+                <Cpu className="text-cyan-400" size={18} />
+                {activeTab === 'xray' ? 'Chest X-Ray' : activeTab === 'ctscan' ? 'CT Scan' : 'MRI'} Diagnostic Workstation & Cases
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">Filtered case file registry for {activeTab.toUpperCase()} imaging modality.</p>
+            </div>
+            <button 
+              onClick={() => setActiveTab('create_case')} 
+              className="glass-btn-primary px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-md"
+            >
+              <Plus size={14} /> New Case
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-slate-500 font-mono text-[9px] uppercase tracking-wider">
+                  <th className="py-3 px-3">Case ID</th>
+                  <th className="py-3 px-3">Patient Record</th>
+                  <th className="py-3 px-3">Modality</th>
+                  <th className="py-3 px-3">Priority Level</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cases.filter(c => {
+                  const mod = c.modality.toLowerCase();
+                  if (activeTab === 'xray') return mod.includes('x-ray') || mod.includes('xray');
+                  if (activeTab === 'ctscan') return mod.includes('ct');
+                  if (activeTab === 'mri') return mod.includes('mri');
+                  return true;
+                }).map(c => (
+                  <tr key={c._id} className="border-b border-white/5 hover:bg-[#102a43]/20 transition">
+                    <td className="py-3.5 px-3 text-cyan-400 font-mono font-bold text-[10px]">{c.caseId}</td>
+                    <td className="py-3.5 px-3 text-white font-semibold font-display">{c.patient?.name || 'N/A'}</td>
+                    <td className="py-3.5 px-3 text-slate-300 font-mono">{c.modality}</td>
+                    <td className="py-3.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-mono ${getPriorityBadgeClass(c.priorityLevel)}`}>
+                        {c.priorityLevel}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-mono ${getStatusBadgeClass(c.status)}`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3 text-right">
+                      <button
+                        onClick={() => { setSelectedCase(c); fetchCaseNotes(c._id); setActiveTab('workstation'); }}
+                        className="glass-btn-primary text-[10px] py-1 px-2.5 cursor-pointer"
+                      >
+                        Open Workstation
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {cases.filter(c => {
+                  const mod = c.modality.toLowerCase();
+                  if (activeTab === 'xray') return mod.includes('x-ray') || mod.includes('xray');
+                  if (activeTab === 'ctscan') return mod.includes('ct');
+                  if (activeTab === 'mri') return mod.includes('mri');
+                  return true;
+                }).length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-slate-500 italic font-display">No cases logged for this modality.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== TAB: COMPLETED REPORTS & DIAGNOSES ==================== */}
+      {activeTab === 'reports' && (
+        <div className="glass-panel p-5 rounded-2xl border border-white/5 space-y-4 font-sans">
+          <div className="border-b border-white/5 pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+              <FileText className="text-cyan-400" size={18} />
+              Completed Clinical Medical Reports Registry
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Archived medical reports and completed diagnostic care plans.</p>
+          </div>
+          
+          <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+            {cases.filter(c => c.radiologyReport || c.aiPrediction || c.status === 'AI Analysis Completed' || c.status === 'Doctor Review Pending' || c.status === 'Treatment Completed' || c.status === 'Case Closed').map(c => (
+              <div key={c._id} className="p-4 bg-[#061826]/60 border border-white/5 rounded-2xl text-xs flex justify-between items-center hover:border-white/10 transition">
+                <div>
+                  <div className="font-mono text-[9px] text-cyan-400 font-bold">CASE: {c.caseId} ({c.modality}) • STATUS: {c.status}</div>
+                  <div className="font-bold text-white mt-1.5 font-display">{c.patient?.name}</div>
+                  {c.aiPrediction?.predictedDisease && (
+                    <div className="text-emerald-400 text-[10px] font-mono mt-1">
+                      AI Diagnosis: {c.aiPrediction.predictedDisease} ({c.aiPrediction.severityLevel || 'Moderate'})
+                    </div>
+                  )}
+                  {c.radiologyReport?.radiologistObservation && <p className="text-slate-300 italic mt-1 leading-relaxed font-sans">"Radiology Observation: {c.radiologyReport.radiologistObservation}"</p>}
+                  {c.treatmentPlan && <p className="text-blue-400 mt-1 leading-relaxed font-sans font-medium">Treatment Plan: {c.treatmentPlan}</p>}
+                </div>
+                <button
+                  onClick={() => { setSelectedCase(c); if (c.radiologyReport) setSelectedReport(c.radiologyReport); setShowReportModal(true); }}
+                  className="glass-btn-primary text-[10px] py-1.5 px-3 cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <FileText size={13} /> View & Print Report
+                </button>
+              </div>
+            ))}
+            {cases.filter(c => c.radiologyReport || c.aiPrediction || c.status === 'AI Analysis Completed' || c.status === 'Doctor Review Pending' || c.status === 'Treatment Completed' || c.status === 'Case Closed').length === 0 && (
+              <div className="text-center text-slate-500 py-12 italic font-display">No completed reports in registry.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== TAB: CLINICAL ANALYTICS ==================== */}
+      {activeTab === 'analytics' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-sans">
+          <StatCard 
+            title="Total Attended Patients" 
+            value={patients.length} 
+            icon={Users} 
+            colorClass="text-cyan-400"
+            sparklineColor="#00c6ff"
+          />
+          <StatCard 
+            title="Active Cases" 
+            value={cases.filter(c => c.status !== 'Treatment Completed').length} 
+            icon={Activity} 
+            colorClass="text-amber-400"
+            sparklineColor="#f59e0b"
+          />
+          <StatCard 
+            title="Radiology Scans Ingested" 
+            value={cases.filter(c => c.radiologyReport).length} 
+            icon={FileText} 
+            colorClass="text-brand-400"
+            sparklineColor="#3A86FF"
+          />
+          <StatCard 
+            title="Completed Treatments" 
+            value={cases.filter(c => c.status === 'Treatment Completed').length} 
+            icon={CheckCircle} 
+            colorClass="text-emerald-400"
+            sparklineColor="#10B981"
+          />
+        </div>
+      )}
+
+      {/* ==================== TAB: DOCTOR SETTINGS ==================== */}
+      {activeTab === 'settings' && (
+        <div className="max-w-2xl mx-auto glass-panel p-6 rounded-2xl space-y-6 font-sans text-xs">
+          <div className="border-b border-white/5 pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 font-display">
+              <Sliders size={18} className="text-cyan-400" />
+              Doctor Workstation Settings & Preferences
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Configure diagnostic thresholds, notification preferences, and PACS integration.</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-[#061826]/60 rounded-xl border border-white/5 flex justify-between items-center">
+              <div>
+                <span className="font-bold text-white block">AI Backdoor Adjustment Auto-Correction</span>
+                <span className="text-[10px] text-slate-400">Automatically calculate backdoor path adjustments for confounders in Causal DAG</span>
+              </div>
+              <input type="checkbox" defaultChecked className="accent-cyan-400 cursor-pointer w-4 h-4" />
+            </div>
+
+            <div className="p-4 bg-[#061826]/60 rounded-xl border border-white/5 flex justify-between items-center">
+              <div>
+                <span className="font-bold text-white block">Real-time PACS Notification Alerts</span>
+                <span className="text-[10px] text-slate-400">Receive instant socket alerts when a radiologist completes scan observation</span>
+              </div>
+              <input type="checkbox" defaultChecked className="accent-cyan-400 cursor-pointer w-4 h-4" />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

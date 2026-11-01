@@ -49,26 +49,35 @@ class TestMedCausalAIPlatform(unittest.TestCase):
 
   def test_image_processing_gradcam(self):
     """
-    Ensures OpenCV mock processing returns bounding boxes and severity metrics
+    Ensures DenseNet121 model inference and GradCAM generation work on real image input
     """
-    # Create temp text file acting as image input
+    from PIL import Image
+    import numpy as np
+
     temp_img = "test_chest_scan.png"
-    with open(temp_img, "w") as f:
-      f.write("mock image data")
+    img_array = np.random.randint(50, 200, (224, 224, 3), dtype=np.uint8)
+    img = Image.fromarray(img_array)
+    img.save(temp_img)
 
     try:
       res = self.model_hub.process_chest_xray(temp_img, "test_outputs")
-      self.assertEqual(res["disease"], "Pneumonia")
-      self.assertEqual(res["severity"], "Moderate")
+      self.assertIn("disease", res)
+      self.assertIn("severity", res)
       self.assertIn("visual_explanation", res)
       self.assertTrue(len(res["visual_explanation"]["bounding_boxes"]) > 0)
+      self.assertIn("raw_probabilities", res)
+      self.assertEqual(len(res["raw_probabilities"]), 14)
     finally:
       if os.path.exists(temp_img):
         os.remove(temp_img)
-      if os.path.exists("test_outputs/gradcam_chest_test_chest_scan.png"):
-        os.remove("test_outputs/gradcam_chest_test_chest_scan.png")
+      gradcam_file = f"test_outputs/gradcam_{os.path.splitext(temp_img)[0]}.png"
+      if os.path.exists(gradcam_file):
+        os.remove(gradcam_file)
       if os.path.exists("test_outputs"):
-        os.rmdir("test_outputs")
+        try:
+          os.rmdir("test_outputs")
+        except OSError:
+          pass
 
   def test_agent_graph_workflow(self):
     """

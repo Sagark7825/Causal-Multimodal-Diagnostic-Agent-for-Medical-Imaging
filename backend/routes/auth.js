@@ -14,21 +14,37 @@ const generateToken = (id) => {
 // @route   POST api/auth/register
 // @desc    Register a new user (default unapproved unless Admin)
 router.post('/register', async (req, res) => {
-  const { name, email, password, role, department } = req.body;
+  const { name, email, password, role, department, degreeCertificate } = req.body;
   try {
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists' });
     }
 
-    // Admins are auto-approved, other clinicians must be authenticated by Admin
+    // Require degree certificate for Doctors
+    if (role === 'Doctor' && !degreeCertificate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Degree completion certificate is required for Doctor registration.'
+      });
+    }
+
+    // Admins are auto-approved, doctors/radiologists must be verified by Admin
     const isApproved = role === 'Admin';
 
-    const user = await User.create({ name, email, password, role, department, isApproved });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role,
+      department,
+      degreeCertificate: degreeCertificate || '',
+      isApproved
+    });
     res.status(201).json({
       success: true,
       token: generateToken(user._id),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, isApproved: user.isApproved }
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, isApproved: user.isApproved, degreeCertificate: user.degreeCertificate }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -46,10 +62,13 @@ router.post('/login', async (req, res) => {
     }
 
     // Restrict access if not approved by Admin
-    if (!user.isApproved) {
+    if (!user.isApproved && user.role !== 'Admin') {
+      const errorMsg = user.role === 'Doctor'
+        ? 'Degree completion certificate pending verification by Admin. You cannot access the application until your degree certificate is verified.'
+        : 'Your account is pending administrator verification. Access is currently restricted.';
       return res.status(403).json({
         success: false,
-        message: 'Your account is pending administrator verification. Access is currently restricted.'
+        message: errorMsg
       });
     }
 
@@ -257,12 +276,12 @@ router.get('/radiologists', protect, async (req, res) => {
 });
 
 // @route   POST api/auth/seed
-// @desc    Seed specific admin credentials and unapproved clinicians
+// @desc    Seed specific admin credentials and demo clinicians
 router.post('/seed', async (req, res) => {
   try {
     await User.deleteMany({});
     
-    // Create the specific Admin requested by the user
+    // 1. Primary Admin
     const adminUser = await User.create({
       name: 'Sagar Khandagale',
       email: 'sagarkhandagale7825@gmail.com',
@@ -272,11 +291,72 @@ router.post('/seed', async (req, res) => {
       department: 'Administration'
     });
 
+    // 2. Demo Admin
+    await User.create({
+      name: 'Dr. System Admin',
+      email: 'admin@medcausal.com',
+      password: 'password123',
+      role: 'Admin',
+      isApproved: true,
+      department: 'Administration'
+    });
+
+    // 3. Demo Doctor
+    const doctorUser = await User.create({
+      name: 'Dr. Sarah Jenkins',
+      email: 'doctor@medcausal.com',
+      password: 'password123',
+      role: 'Doctor',
+      isApproved: true,
+      department: 'Pulmonology'
+    });
+
+    // 4. Demo Radiologist
+    const radUser = await User.create({
+      name: 'Dr. Marcus Vance',
+      email: 'radiologist@medcausal.com',
+      password: 'password123',
+      role: 'Radiologist',
+      isApproved: true,
+      department: 'Radiology'
+    });
+
+    // 5. Demo Receptionist
+    await User.create({
+      name: 'Elena Rostova',
+      email: 'receptionist@medcausal.com',
+      password: 'password123',
+      role: 'Receptionist',
+      isApproved: true,
+      department: 'Front Desk'
+    });
+
+    // 6. Demo Lab Tech
+    await User.create({
+      name: 'David Chen',
+      email: 'labtech@medcausal.com',
+      password: 'password123',
+      role: 'Lab Tech',
+      isApproved: true,
+      department: 'Pathology'
+    });
+
+    // 7. Demo Patient User
+    await User.create({
+      name: 'John Doe',
+      email: 'patient@medcausal.com',
+      password: 'password123',
+      role: 'Patient',
+      isApproved: true,
+      department: 'Outpatient'
+    });
+
     res.json({ 
       success: true, 
-      message: 'Seeded system admin successfully', 
-      admin: { name: adminUser.name, email: adminUser.email, role: adminUser.role, isApproved: adminUser.isApproved },
-      clinicians: []
+      message: 'Seeded system admin and demo clinician accounts successfully', 
+      admin: { name: adminUser.name, email: adminUser.email, role: adminUser.role },
+      doctor: { name: doctorUser.name, email: doctorUser.email },
+      radiologist: { name: radUser.name, email: radUser.email }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

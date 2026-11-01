@@ -67,6 +67,8 @@ export default function App() {
   const [regPassword, setRegPassword] = useState('');
   const [regRole, setRegRole] = useState('Doctor');
   const [regDept, setRegDept] = useState('Internal Medicine');
+  const [regCert, setRegCert] = useState('');
+  const [regCertName, setRegCertName] = useState('');
 
   // Core Data States
   const [patients, setPatients] = useState([]);
@@ -211,22 +213,15 @@ export default function App() {
     setLoading(true);
     setError('');
     setSuccessMsg('');
-    
-    const isAdmin = email.toLowerCase() === 'sagarkhandagale7825@gmail.com';
-    
-    if (!isAdmin && !loginRole) {
-      setError('Access Denied: Please select either Doctor or Radiologist workspace to continue.');
-      setLoading(false);
-      return;
-    }
 
     try {
       const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
       if (res.data.success) {
         const loggedInUser = res.data.user;
         
-        if (!isAdmin && loggedInUser.role !== loginRole) {
-          setError(`Access Denied: Checked workspace role '${loginRole}' does not match your registered profile role '${loggedInUser.role}'.`);
+        // Admin can log in without selecting any role tab
+        if (loginRole && loggedInUser.role !== loginRole && loggedInUser.role !== 'Admin') {
+          setError(`Access Denied: Selected workspace role '${loginRole}' does not match your registered profile role '${loggedInUser.role}'.`);
           setLoading(false);
           return;
         }
@@ -252,16 +247,19 @@ export default function App() {
         email: regEmail,
         password: regPassword,
         role: regRole,
-        department: regDept
+        department: regDept,
+        degreeCertificate: regCert
       });
       if (res.data.success) {
         setSuccessMsg(
           res.data.user.role === 'Admin'
             ? 'Administrator created! Log in to begin.'
-            : 'Clinician registered! Pending administrator credential approval.'
+            : res.data.user.role === 'Doctor'
+              ? 'Doctor account created! Your degree completion certificate has been submitted for Admin verification.'
+              : 'Clinician registered! Pending administrator approval.'
         );
         setIsRegistering(false);
-        setRegName(''); setRegEmail(''); setRegPassword('');
+        setRegName(''); setRegEmail(''); setRegPassword(''); setRegCert(''); setRegCertName('');
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed.');
@@ -277,8 +275,8 @@ export default function App() {
     try {
       await axios.post(`${API_BASE}/auth/seed`);
       await axios.post(`${API_BASE}/patients/seed`);
-      setSuccessMsg('Database populated with Sagar Khandagale Admin (sagarkhandagale7825@gmail.com/sagar7825) & clinical cases.');
-      addNotification('CDSS Database reseeded successfully.', 'success');
+      setSuccessMsg('Database initialized cleanly with Sagar Khandagale Admin (sagarkhandagale7825@gmail.com / sagar7825). All dummy patient records removed.');
+      addNotification('CDSS Database initialized with zero dummy patients.', 'success');
       fetchDashboardData();
     } catch (err) {
       setError('Database seeding failure.');
@@ -287,9 +285,17 @@ export default function App() {
     }
   };
 
-  const handleQuickLogin = (roleEmail, rolePass = 'Password123') => {
+  const handleQuickLogin = (roleEmail, rolePass) => {
+    let pass = rolePass;
+    if (!pass) {
+      if (roleEmail.toLowerCase() === 'sagarkhandagale7825@gmail.com') {
+        pass = 'sagar7825';
+      } else {
+        pass = 'password123';
+      }
+    }
     setEmail(roleEmail);
-    setPassword(rolePass);
+    setPassword(pass);
   };
 
   // DOCTOR ACTIONS
@@ -501,6 +507,76 @@ export default function App() {
     } catch (err) { alert('Report submission failed: ' + err.message); }
   };
 
+  const handleUploadAndRunAI = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedCase) {
+      alert('Select a clinical case from the queue first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      let reportToRun = selectedReport;
+
+      // 1. Upload scan image if file is selected (automatically runs DenseNet121 + LLM diagnosis)
+      if (uploadFile) {
+        const formData = new FormData();
+        formData.append('caseId', selectedCase._id);
+        formData.append('file', uploadFile);
+
+        const uploadRes = await axios.post(`${API_BASE}/reports/upload`, formData, {
+          headers: {
+            ...getAxiosConfig().headers,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        if (uploadRes.data.success) {
+          reportToRun = uploadRes.data.report;
+          setSelectedReport(uploadRes.data.report);
+          if (uploadRes.data.clinicalCase) {
+            setSelectedCase(uploadRes.data.clinicalCase);
+          }
+        }
+      } else if (reportToRun) {
+        // 2. Only call run-ai if no new file was uploaded, but an existing report needs AI run
+        const aiRes = await axios.post(`${API_BASE}/reports/${reportToRun._id}/run-ai`, {}, getAxiosConfig());
+        if (aiRes.data.success) {
+          reportToRun = aiRes.data.report;
+          setSelectedReport(aiRes.data.report);
+        }
+      }
+
+      if (!reportToRun) {
+        alert('Please select or upload an X-ray scan image file.');
+        setLoading(false);
+        return;
+      }
+
+      if (reportToRun?.aiPrediction?.suggestedObservation) {
+        setRadiologistObservation(reportToRun.aiPrediction.suggestedObservation);
+      }
+
+      await fetchDashboardData();
+
+      // Reload current clinical case to reflect updated status and predictions
+      const resCase = await axios.get(`${API_BASE}/patients/cases/${selectedCase._id}`, getAxiosConfig());
+      if (resCase.data.success) {
+        setSelectedCase(resCase.data.clinicalCase);
+        if (resCase.data.clinicalCase.radiologyReport) {
+          setSelectedReport(resCase.data.clinicalCase.radiologyReport);
+        }
+      }
+
+      addNotification('AI Diagnostic Model & LLM reasoning completed successfully!', 'success');
+      setActiveTab('workstation');
+    } catch (err) {
+      console.error('AI Processing Error:', err);
+      alert('AI Diagnostic Pipeline failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ADMIN ACTIONS
   const handleApproveClinician = async (userId) => {
     try {
@@ -600,6 +676,8 @@ export default function App() {
           regPassword={regPassword} setRegPassword={setRegPassword}
           regRole={regRole} setRegRole={setRegRole}
           regDept={regDept} setRegDept={setRegDept}
+          regCert={regCert} setRegCert={setRegCert}
+          regCertName={regCertName} setRegCertName={setRegCertName}
           showRegPassword={showRegPassword} setShowRegPassword={setShowRegPassword}
           loading={loading}
           handleRegister={handleRegister}
@@ -707,19 +785,20 @@ export default function App() {
       {/* Background visual components */}
       <div className="laboratory-grid" />
       <div className="laboratory-glows" />
-      <div className="floating-circle w-96 h-96 top-10 left-10" />
-      <div className="floating-circle w-80 h-80 bottom-10 right-10" style={{ animationDelay: '-10s' }} />
+      <div className="floating-circle absolute pointer-events-none w-96 h-96 top-10 left-10" />
+      <div className="floating-circle absolute pointer-events-none w-80 h-80 bottom-10 right-10" style={{ animationDelay: '-10s' }} />
 
       {/* Side Menu */}
       <GlassSidebar 
         user={auth.user} 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
+        theme={theme}
         onLogout={() => dispatch(logout())} 
       />
 
       {/* Content Body */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-y-auto">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 w-full max-w-full overflow-y-auto">
         
         {/* Navbar */}
         <TopNavbar 
@@ -729,6 +808,7 @@ export default function App() {
           setNotifications={setNotifications} 
           theme={theme}
           toggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+          user={auth.user}
         />
 
         {/* Live alert ticker if active notifications */}
@@ -748,7 +828,7 @@ export default function App() {
         )}
 
         {/* Dashboard layouts based on clinician roles */}
-        <main className="p-8 flex-1">
+        <main className="p-6 md:p-8 flex-1 w-full max-w-full min-w-0">
           {auth.user?.role === 'Doctor' && (
             <DoctorDashboard 
               activeTab={activeTab} setActiveTab={setActiveTab}
@@ -800,20 +880,27 @@ export default function App() {
               radiologistObservation={radiologistObservation} setRadiologistObservation={setRadiologistObservation}
               obsAction={obsAction} setObsAction={setObsAction}
               loading={loading}
+              patients={patients}
+              radiologistsList={radiologistsList}
               
               handleUploadImaging={handleUploadImaging}
               handleRunAIAnalysis={handleRunAIAnalysis}
+              handleUploadAndRunAI={handleUploadAndRunAI}
               handleRadiologistSubmitReport={handleRadiologistSubmitReport}
               
               getPriorityBadgeClass={getPriorityBadgeClass}
               getStatusBadgeClass={getStatusBadgeClass}
               auth={auth}
+              setLoading={setLoading}
+              API_BASE={API_BASE}
+              fetchDashboardData={fetchDashboardData}
             />
           )}
 
           {auth.user?.role === 'Admin' && (
             <AdminDashboard 
               activeTab={activeTab}
+              setActiveTab={setActiveTab}
               analytics={analytics}
               appointments={appointments}
               auditLogs={auditLogs}
@@ -824,6 +911,14 @@ export default function App() {
               resetPassUserId={resetPassUserId} setResetPassUserId={setResetPassUserId}
               newPasswordValue={newPasswordValue} setNewPasswordValue={setNewPasswordValue}
               newDeptName={newDeptName} setNewDeptName={setNewDeptName}
+              patients={patients}
+              cases={cases}
+              
+              patName={patName} setPatName={setPatName} patAge={patAge} setPatAge={setPatAge} patGender={patGender} setPatGender={setPatGender}
+              patContact={patContact} setPatContact={setPatContact} patAddress={patAddress} setPatAddress={setPatAddress} patEmergency={patEmergency} setPatEmergency={setPatEmergency}
+              patHistory={patHistory} setPatHistory={setPatHistory} patSymptoms={patSymptoms} setPatSymptoms={setPatSymptoms} patTemp={patTemp} setPatTemp={setPatTemp}
+              patPulse={patPulse} setPatPulse={setPatPulse} patBpSys={patBpSys} setPatBpSys={setPatBpSys} patBpDia={patBpDia} setPatBpDia={setPatBpDia} patSpo2={patSpo2} setPatSpo2={setPatSpo2}
+              handleRegisterPatient={handleRegisterPatient}
               
               handleApproveClinician={handleApproveClinician}
               handleSuspendUser={handleSuspendUser}
@@ -835,11 +930,53 @@ export default function App() {
               getStatusBadgeClass={getStatusBadgeClass}
             />
           )}
+
+          {auth.user?.role !== 'Doctor' && auth.user?.role !== 'Radiologist' && auth.user?.role !== 'Admin' && (
+            <DoctorDashboard 
+              activeTab={activeTab} setActiveTab={setActiveTab}
+              patients={patients} selectedPatient={selectedPatient} setSelectedPatient={setSelectedPatient}
+              cases={cases} selectedCase={selectedCase} setSelectedCase={setSelectedCase}
+              appointments={appointments}
+              caseNotes={caseNotes} newNote={newNote} setNewNote={setNewNote}
+              searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+              casesFilter={casesFilter} setCasesFilter={setCasesFilter}
+              
+              patName={patName} setPatName={setPatName} patAge={patAge} setPatAge={setPatAge} patGender={patGender} setPatGender={setPatGender}
+              patContact={patContact} setPatContact={setPatContact} patAddress={patAddress} setPatAddress={setPatAddress} patEmergency={patEmergency} setPatEmergency={setPatEmergency}
+              patHistory={patHistory} setPatHistory={setPatHistory} patSymptoms={patSymptoms} setPatSymptoms={setPatSymptoms} patTemp={patTemp} setPatTemp={setPatTemp}
+              patPulse={patPulse} setPatPulse={setPatPulse} patBpSys={patBpSys} setPatBpSys={setPatBpSys} patBpDia={patBpDia} setPatBpDia={setPatBpDia} patSpo2={patSpo2} setPatSpo2={setPatSpo2}
+              
+              caseModality={caseModality} setCaseModality={setCaseModality} caseComplaint={caseComplaint} setCaseComplaint={setCaseComplaint}
+              caseNotesText={caseNotesText} setCaseNotesText={setCaseNotesText} caseImagingReason={caseImagingReason} setCaseImagingReason={setCaseImagingReason}
+              casePriority={casePriority} setCasePriority={setCasePriority}
+              
+              radiologistsList={radiologistsList} selectedRadiologist={selectedRadiologist} setSelectedRadiologist={setSelectedRadiologist}
+              radioSearchQuery={radioSearchQuery} setRadioSearchQuery={setRadioSearchQuery}
+              
+              docFinalDiagnosis={docFinalDiagnosis} setDocFinalDiagnosis={setDocFinalDiagnosis} docTreatmentPlan={docTreatmentPlan} setDocTreatmentPlan={setDocTreatmentPlan}
+              docPrescription={docPrescription} setDocPrescription={setDocPrescription} docFollowUp={docFollowUp} setDocFollowUp={setDocFollowUp}
+              
+              handleRegisterPatient={handleRegisterPatient}
+              handleTemporaryDeletePatient={handleTemporaryDeletePatient}
+              handleRestorePatient={handleRestorePatient}
+              handleCreateCase={handleCreateCase}
+              handleAddDoctorNote={handleAddDoctorNote}
+              handleDoctorFinalSubmit={handleDoctorFinalSubmit}
+              fetchCaseNotes={fetchCaseNotes}
+              
+              getPriorityBadgeClass={getPriorityBadgeClass}
+              getStatusBadgeClass={getStatusBadgeClass}
+              timelineStages={timelineStages}
+              getStageIndex={getStageIndex}
+              API_BASE={API_BASE}
+              getAxiosConfig={getAxiosConfig}
+            />
+          )}
         </main>
       </div>
 
       {/* AI Inference Overlay */}
-      <AIAnalysisOverlay isOpen={loading && activeTab === 'workstation'} />
+      <AIAnalysisOverlay isOpen={loading && (activeTab === 'workstation' || activeTab === 'mri_lab')} />
 
     </div>
   );

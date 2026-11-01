@@ -38,10 +38,11 @@ const generateCaseId = async () => {
 };
 
 // @route   GET api/patients
-// @desc    Get all patients
+// @desc    Get all patients (filtered by default to active non-deleted patients)
 router.get('/', protect, async (req, res) => {
   try {
-    const patients = await Patient.find().sort({ name: 1 });
+    const filter = req.query.includeDeleted === 'true' ? {} : { isDeleted: { $ne: true } };
+    const patients = await Patient.find(filter).sort({ name: 1 });
     res.json({ success: true, patients });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -52,13 +53,18 @@ router.get('/', protect, async (req, res) => {
 // @desc    Search patients by name or patientId
 router.get('/search', protect, async (req, res) => {
   const query = req.query.q || '';
+  const includeDeleted = req.query.includeDeleted === 'true';
   try {
-    const patients = await Patient.find({
+    const filterCondition = {
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { patientId: { $regex: query, $options: 'i' } }
       ]
-    }).limit(15);
+    };
+    if (!includeDeleted) {
+      filterCondition.isDeleted = { $ne: true };
+    }
+    const patients = await Patient.find(filterCondition).limit(15);
     res.json({ success: true, patients });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -339,7 +345,7 @@ router.post('/appointments', protect, authorize('Doctor'), async (req, res) => {
 });
 
 // @route   POST api/patients/seed
-// @desc    Seed new Patient / ClinicalCase / Appointment collections
+// @desc    Clear all Patient / ClinicalCase / Appointment / DoctorNote collections (clean reset)
 router.post('/seed', async (req, res) => {
   try {
     // Clear collections
@@ -348,98 +354,86 @@ router.post('/seed', async (req, res) => {
     await Appointment.deleteMany({});
     await DoctorNote.deleteMany({});
 
-    const currentYear = new Date().getFullYear();
-
-    // 1. Create Patients
-    const pat1 = await Patient.create({
-      patientId: `PAT-${currentYear}-000001`,
-      name: 'Eleanor Vance',
-      age: 45,
-      gender: 'Female',
-      contactNumber: '+1-555-0199',
-      address: '742 Evergreen Terrace, Springfield',
-      emergencyContact: 'Robert Vance (+1-555-0200)',
-      medicalHistory: 'Mild asthma, seasonal allergies.',
-      currentSymptoms: 'Shortness of breath and dry cough for 5 days',
-      vitalSigns: {
-        temperature: 37.8,
-        heartRate: 88,
-        bpSystolic: 125,
-        bpDiastolic: 80,
-        spo2: 95
-      }
+    res.json({
+      success: true,
+      message: 'Cleared all Patient, ClinicalCase, and Appointment collections successfully',
+      patients: [],
+      cases: []
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-    const pat2 = await Patient.create({
-      patientId: `PAT-${currentYear}-000002`,
-      name: 'Marcus Brody',
-      age: 62,
-      gender: 'Male',
-      contactNumber: '+1-555-8911',
-      address: '221B Baker Street, London',
-      emergencyContact: 'Indiana Brody (+1-555-8912)',
-      medicalHistory: 'Hypertension, Type 2 Diabetes.',
-      currentSymptoms: 'Chronic headache and pressure behind eyes',
-      vitalSigns: {
-        temperature: 36.6,
-        heartRate: 72,
-        bpSystolic: 138,
-        bpDiastolic: 88,
-        spo2: 98
-      }
-    });
-
-    // Find a Doctor to assign
-    const User = require('../models/User');
-    const doctor = await User.findOne({ role: 'Doctor' });
-    const doctorId = doctor ? doctor._id : new mongoose.Types.ObjectId();
-
-    // 2. Create Cases
-    const case1 = await ClinicalCase.create({
-      caseId: `CASE-${currentYear}-000001`,
-      patient: pat1._id,
-      modality: 'Chest X-ray',
-      chiefComplaint: 'Dry cough and mild dyspnea',
-      clinicalNotes: 'Crackles detected in left mid-lung section.',
-      reasonForImaging: 'Assess for atypical pneumonia or infiltration',
-      priorityLevel: 'Urgent',
-      status: 'Awaiting Imaging',
-      createdBy: doctorId
-    });
-
-    const case2 = await ClinicalCase.create({
-      caseId: `CASE-${currentYear}-000002`,
-      patient: pat2._id,
-      modality: 'MRI',
-      chiefComplaint: 'Severe headaches, visual blurring',
-      clinicalNotes: 'Slight cranial pressure reported. Reflexes normal.',
-      reasonForImaging: 'Pituitary gland or pituitary fossa MRI scan',
-      priorityLevel: 'Routine',
-      status: 'Awaiting Imaging',
-      createdBy: doctorId
-    });
-
-    // 3. Create Appointments
-    await Appointment.create({
-      patient: pat1._id,
-      doctor: doctorId,
-      appointmentDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // tomorrow
-      reason: 'Follow-up on respiratory check'
-    });
-
-    await Appointment.create({
-      patient: pat2._id,
-      doctor: doctorId,
-      appointmentDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // in 2 days
-      reason: 'Discuss neurological imaging results'
-    });
+// @route   DELETE api/patients/clear-all
+// @desc    Delete all patient records from database
+router.delete('/clear-all', protect, async (req, res) => {
+  try {
+    await Patient.deleteMany({});
+    await ClinicalCase.deleteMany({});
+    await Appointment.deleteMany({});
+    await DoctorNote.deleteMany({});
 
     res.json({
       success: true,
-      message: 'Seeded new Patient and Clinical Case collections successfully',
-      patients: [pat1, pat2],
-      cases: [case1, case2]
+      message: 'All dummy and existing patient records deleted successfully'
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   PUT api/patients/:id/temporary-delete
+// @desc    Temporarily delete / archive a patient record (Doctor or Admin)
+router.put('/:id/temporary-delete', protect, authorize('Doctor', 'Admin'), async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.params.id);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient record not found' });
+    }
+
+    patient.isDeleted = true;
+    patient.deletedAt = new Date();
+    await patient.save();
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'TEMPORARILY_DELETE_PATIENT',
+      details: `Temporarily deleted patient record: ${patient.name} (${patient.patientId})`,
+      ipAddress: req.ip
+    });
+
+    res.json({ success: true, message: `Patient ${patient.name} temporarily deleted successfully`, patient });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   PUT api/patients/:id/restore
+// @desc    Restore a temporarily deleted / archived patient record (Doctor or Admin)
+router.put('/:id/restore', protect, authorize('Doctor', 'Admin'), async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.params.id);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient record not found' });
+    }
+
+    patient.isDeleted = false;
+    patient.deletedAt = null;
+    await patient.save();
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'RESTORE_PATIENT',
+      details: `Restored patient record: ${patient.name} (${patient.patientId})`,
+      ipAddress: req.ip
+    });
+
+    res.json({ success: true, message: `Patient ${patient.name} restored successfully`, patient });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

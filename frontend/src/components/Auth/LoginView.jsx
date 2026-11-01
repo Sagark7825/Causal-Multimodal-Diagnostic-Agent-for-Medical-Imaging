@@ -108,33 +108,33 @@ export default function LoginView({
           {/* Form */}
           <form onSubmit={onSubmit} className="space-y-4 font-sans text-xs">
             
-            {/* Workspace Select */}
+            {/* Workspace Select - Only Doctor and Radiologist options shown */}
             <div className="mb-4">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 text-center">
                 Select Workspace Mode
               </label>
-              <div className="grid grid-cols-2 gap-2 bg-[#061826]/75 p-1.5 rounded-2xl border border-white/5 shadow-inner">
+              <div className="grid grid-cols-2 gap-3 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
                 <button
                   type="button"
                   onClick={() => setLoginRole('Doctor')}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
                     loginRole === 'Doctor'
-                      ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  🩺 Doctor
+                  <span>🩺</span> Doctor
                 </button>
                 <button
                   type="button"
                   onClick={() => setLoginRole('Radiologist')}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
                     loginRole === 'Radiologist'
-                      ? 'bg-gradient-to-r from-cyan-500 to-brand-500 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  ☢️ Radiologist
+                  <span>☢️</span> Radiologist
                 </button>
               </div>
             </div>
@@ -178,7 +178,7 @@ export default function LoginView({
             <button
               type="submit" 
               disabled={loading}
-              className="w-full glass-btn-primary py-3 flex items-center justify-center gap-2 mt-4 text-xs font-semibold cursor-pointer shadow-lg shadow-cyan-500/10"
+              className="w-full glass-btn-primary py-3 flex items-center justify-center gap-2 mt-4 text-xs font-semibold cursor-pointer shadow-md"
             >
               {loading ? 'Authenticating Profile...' : 'Sign In to Workspace'}
               <ArrowRight size={15} />
@@ -189,7 +189,7 @@ export default function LoginView({
               <button 
                 type="button" 
                 onClick={() => setIsRegistering(true)}
-                className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer"
+                className="text-xs text-blue-400 hover:text-blue-300 font-semibold cursor-pointer"
               >
                 Register New Clinician Profile
               </button>
@@ -197,40 +197,50 @@ export default function LoginView({
           </form>
 
           {/* QUICK DEV LOGINS DROPDOWN */}
-          <div className="mt-8 pt-6 border-t border-white/5 space-y-3 font-sans">
+          <div className="mt-8 pt-6 border-t border-slate-800 space-y-3 font-sans">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block text-center">
               Quick Clinician Logins
             </span>
             <div className="grid grid-cols-2 gap-2">
               <button 
+                type="button"
                 onClick={() => {
                   setLoginRole('Doctor');
-                  handleQuickLogin('doctor@medcausal.com');
+                  handleQuickLogin('doctor@medcausal.com', 'password123');
                 }}
-                className="px-2 py-2 bg-white/3 border border-white/5 hover:border-cyan-400/30 rounded-xl text-[10px] text-slate-300 hover:text-cyan-400 transition cursor-pointer flex flex-col items-center gap-1 font-medium"
+                className="px-3 py-2 bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl text-[10px] text-slate-300 hover:text-blue-400 transition cursor-pointer flex items-center justify-center gap-2 font-medium"
               >
-                <span>🩺</span>
-                <span>Doctor</span>
+                <span>🩺</span> Doctor Login
               </button>
               <button 
+                type="button"
                 onClick={() => {
                   setLoginRole('Radiologist');
-                  handleQuickLogin('radiologist@medcausal.com');
+                  handleQuickLogin('radiologist@medcausal.com', 'password123');
                 }}
-                className="px-2 py-2 bg-white/3 border border-white/5 hover:border-cyan-400/30 rounded-xl text-[10px] text-slate-300 hover:text-cyan-400 transition cursor-pointer flex flex-col items-center gap-1 font-medium"
+                className="px-3 py-2 bg-slate-900 border border-slate-800 hover:border-blue-500/40 rounded-xl text-[10px] text-slate-300 hover:text-blue-400 transition cursor-pointer flex items-center justify-center gap-2 font-medium"
               >
-                <span>☢️</span>
-                <span>Radiologist</span>
+                <span>☢️</span> Radiologist Login
               </button>
             </div>
 
-            {/* Seed database option */}
-            <div className="flex justify-center pt-2">
+            {/* Admin Portal quick link */}
+            <div className="flex justify-between items-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginRole('');
+                  handleQuickLogin('sagarkhandagale7825@gmail.com', 'sagar7825');
+                }}
+                className="text-[10px] font-semibold text-slate-400 hover:text-blue-400 transition flex items-center gap-1 cursor-pointer"
+              >
+                🛡️ Quick Admin Login
+              </button>
               <button
                 onClick={handleSeedDatabase}
-                className="text-[9px] font-mono text-slate-500 hover:text-cyan-400 transition flex items-center gap-1 px-3 py-1 bg-white/2 hover:bg-white/4 rounded-lg border border-white/5 cursor-pointer"
+                className="text-[9px] font-mono text-slate-500 hover:text-slate-300 transition flex items-center gap-1 px-2.5 py-1 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer"
               >
-                <Database size={10} /> Seed Database API
+                <Database size={10} /> Seed Database
               </button>
             </div>
           </div>

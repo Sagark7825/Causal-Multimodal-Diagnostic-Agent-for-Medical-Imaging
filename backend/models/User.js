@@ -20,7 +20,7 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Admin', 'Doctor', 'Radiologist'],
+    enum: ['Admin', 'Doctor', 'Radiologist', 'Receptionist', 'Lab Tech', 'Patient'],
     required: true
   },
   isApproved: {
@@ -34,6 +34,10 @@ const UserSchema = new mongoose.Schema({
   department: {
     type: String,
     default: 'General'
+  },
+  degreeCertificate: {
+    type: String,
+    default: ''
   },
   createdAt: {
     type: Date,

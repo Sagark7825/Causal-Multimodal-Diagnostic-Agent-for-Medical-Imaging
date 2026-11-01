@@ -27,9 +27,12 @@ const AIPredictionSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  heatmapBase64: {
+    type: String,
+    default: ''
+  },
   severityLevel: {
     type: String,
-    enum: ['Normal', 'Mild', 'Moderate', 'Severe', 'Critical'],
     default: 'Moderate'
   },
   suggestedFindings: {
@@ -40,10 +43,60 @@ const AIPredictionSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+
+  // Full LLM Clinical Reasoning & Differential Diagnosis
+  reasoningNarrative: {
+    type: String,
+    default: ''
+  },
   differentialDiagnosis: {
-    type: [String],
+    type: mongoose.Schema.Types.Mixed,
     default: []
   },
+  positiveFindings: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
+  rawProbabilities: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  uncertaintyAnalysis: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  limitations: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
+  llmModelUsed: {
+    type: String,
+    default: ''
+  },
+  reasoningSource: {
+    type: String,
+    default: ''
+  },
+
+  // LLM Treatment Recommendations
+  treatmentRecommendations: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
+  drugRecommendations: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
+  followUpRecommendations: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
+  investigations: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
+
+  // Visual & Causal DAG
   boundingBoxes: [{
     label: String,
     xMin: Number,
@@ -52,19 +105,17 @@ const AIPredictionSchema = new mongoose.Schema({
     yMax: Number
   }],
   causalReasoning: {
-    dagNodes: [String],
-    dagEdges: [{ from: String, to: String, weight: Number }],
-    backdoorAdjustedATE: mongoose.Schema.Types.Mixed,
-    counterfactuals: mongoose.Schema.Types.Mixed
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   indicators: {
-    type: Map,
-    of: String
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   createdAt: {
     type: Date,
     default: Date.now
   }
-});
+}, { strict: false });
 
 module.exports = mongoose.model('AIPrediction', AIPredictionSchema);
